@@ -107,10 +107,14 @@ function App() {
       });
 
       const unlistenRunComplete = await onRunComplete((payload) => {
+        const totalProcessed = payload.moved + payload.skipped;
+        if (totalProcessed === 0 && payload.errors === 0) {
+          return;
+        }
+
         setLastRun(payload);
         setProgress({ moved: payload.moved, skipped: payload.skipped, errors: payload.errors });
 
-        const totalProcessed = payload.moved + payload.skipped;
         setActivity((prev) => [
           createActivity({
             level: payload.errors > 0 ? "warn" : "info",

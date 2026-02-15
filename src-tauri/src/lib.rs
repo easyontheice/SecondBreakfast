@@ -191,7 +191,9 @@ fn run_now_internal(app: &AppHandle, state: &AppState) -> AppResult<RunResult> {
     }
 
     journal::append_run(&state.inner.journal_path, &result.session_id, &result.moved_files)?;
-    let _ = app.emit("run_complete", result.clone());
+    if should_emit_run_complete(&result) {
+        let _ = app.emit("run_complete", result.clone());
+    }
     Ok(result)
 }
 
@@ -273,6 +275,10 @@ fn emit_watcher_status(app: &AppHandle, state: &AppState) -> AppResult<()> {
 fn apply_cleanup(result: &mut RunResult, cleanup: CleanupResult) {
     result.cleanup_trashed = cleanup.trashed;
     result.cleanup_errors = cleanup.errors;
+}
+
+fn should_emit_run_complete(result: &RunResult) -> bool {
+    result.moved > 0 || result.skipped > 0 || result.errors > 0
 }
 
 fn map_err<T>(result: AppResult<T>) -> Result<T, String> {
