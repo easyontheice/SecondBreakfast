@@ -177,7 +177,21 @@ fn run_now_internal(app: &AppHandle, state: &AppState) -> AppResult<RunResult> {
 }
 
 fn undo_last_run_internal(app: &AppHandle, state: &AppState) -> AppResult<journal::UndoResult> {
-    let result = journal::undo_last_run(&state.inner.journal_path)?;
+    let _guard = RunGuard::acquire(&state.inner.pipeline_running)?;
+    let watcher_was_running = state.watcher_running()?;
+
+    if watcher_was_running {
+        stop_watcher_internal(app, state)?;
+    }
+
+    let undo_result = journal::undo_last_run(&state.inner.journal_path);
+
+    if watcher_was_running {
+        std::thread::sleep(Duration::from_millis(1500));
+        start_watcher_internal(app, state)?;
+    }
+
+    let result = undo_result?;
     executor::emit_log(
         app,
         "info",

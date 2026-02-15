@@ -1,12 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
-import { NavLink, useLocation } from "react-router-dom";
-import { LayoutDashboard, Pause, Play, Settings, Trash2, Wrench, X } from "lucide-react";
+import { NavLink } from "react-router-dom";
+import { LayoutDashboard, Pause, Play, Settings, Trash2, Wrench } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 interface AppShellProps {
-  appVersion: string;
   watcherRunning: boolean;
   sortRoot: string;
   running: boolean;
@@ -23,50 +21,7 @@ const links = [
   { to: "/settings", label: "Settings", icon: Settings }
 ];
 
-const TAGLINE = "Because files deserve proper placement before elevenses.";
-
-function useVersionedTagline(appVersion: string) {
-  const [visible, setVisible] = useState(false);
-  const storageKey = useMemo(() => `secondbreakfast_tagline_dismissed_v${appVersion}`, [appVersion]);
-
-  useEffect(() => {
-    if (!appVersion) {
-      return;
-    }
-
-    if (localStorage.getItem(storageKey) !== "true") {
-      setVisible(true);
-    }
-  }, [appVersion, storageKey]);
-
-  useEffect(() => {
-    if (!visible) {
-      return;
-    }
-
-    const dismiss = () => {
-      localStorage.setItem(storageKey, "true");
-      setVisible(false);
-    };
-
-    const timer = window.setTimeout(dismiss, 8000);
-    const interaction = () => dismiss();
-
-    window.addEventListener("pointerdown", interaction, { once: true, capture: true });
-    window.addEventListener("keydown", interaction, { once: true });
-
-    return () => {
-      window.clearTimeout(timer);
-      window.removeEventListener("pointerdown", interaction, true);
-      window.removeEventListener("keydown", interaction);
-    };
-  }, [visible, storageKey]);
-
-  return { visible, dismiss: () => setVisible(false), storageKey };
-}
-
 export function AppShell({
-  appVersion,
   watcherRunning,
   sortRoot,
   running,
@@ -75,15 +30,6 @@ export function AppShell({
   onToggleWatcher,
   children
 }: AppShellProps) {
-  const location = useLocation();
-  const { visible, dismiss, storageKey } = useVersionedTagline(appVersion);
-  const showBanner = visible;
-
-  const closeBanner = () => {
-    localStorage.setItem(storageKey, "true");
-    dismiss();
-  };
-
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_15%_0%,hsl(var(--primary)/0.12),transparent_45%),radial-gradient(circle_at_85%_100%,hsl(var(--accent)/0.16),transparent_45%)]">
       <div className="mx-auto grid max-w-[1440px] gap-6 px-6 py-7 md:grid-cols-[270px_1fr]">
@@ -149,30 +95,6 @@ export function AppShell({
               </div>
             </div>
           </header>
-
-          <div
-            className={cn(
-              "overflow-hidden transition-all duration-200",
-              showBanner ? "max-h-48 opacity-100" : "max-h-0 opacity-0"
-            )}
-          >
-            <div
-              className={cn(
-                "relative rounded-2xl border border-[hsl(var(--primary)/0.55)] bg-[linear-gradient(180deg,#2b2317,#1f1912)] p-4 shadow-soft",
-                location.pathname === "/" || location.pathname === "/rules" ? "" : "opacity-95"
-              )}
-            >
-              <p className="pr-10 text-sm leading-relaxed text-foreground">{TAGLINE}</p>
-              <button
-                type="button"
-                onClick={closeBanner}
-                className="absolute right-3 top-3 rounded-md border border-[hsl(var(--primary)/0.35)] bg-background/40 p-1 text-muted-foreground transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                aria-label="Dismiss welcome banner"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
 
           <main>{children}</main>
         </div>

@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import { getVersion } from "@tauri-apps/api/app";
 import { open } from "@tauri-apps/plugin-dialog";
 import { HashRouter, Route, Routes } from "react-router-dom";
 import { toast } from "sonner";
@@ -49,18 +48,13 @@ function App() {
   const [dryPlan, setDryPlan] = useState<PlanPreview | null>(null);
   const [dryOpen, setDryOpen] = useState(false);
   const [onboarding, setOnboarding] = useState(false);
-  const [appVersion, setAppVersion] = useState("0.1.0");
 
   useEffect(() => {
     let active = true;
 
     async function boot() {
       try {
-        const [nextRules, status, version] = await Promise.all([
-          getRules(),
-          watcherStatus(),
-          getVersion().catch(() => "0.1.0")
-        ]);
+        const [nextRules, status] = await Promise.all([getRules(), watcherStatus()]);
         if (!active) {
           return;
         }
@@ -68,7 +62,6 @@ function App() {
         setRules(nextRules);
         setDraftRules(nextRules);
         setWatcherRunning(status.running);
-        setAppVersion(version);
 
         const done = localStorage.getItem("secondbreakfast.onboarded") === "true";
         setOnboarding(!done);
@@ -249,7 +242,6 @@ function App() {
     <>
       <HashRouter>
         <AppShell
-          appVersion={appVersion}
           watcherRunning={watcherRunning}
           sortRoot={sortRoot}
           running={running}
@@ -336,3 +328,4 @@ function App() {
 }
 
 export default App;
+

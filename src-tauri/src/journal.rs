@@ -9,6 +9,7 @@ use std::path::Path;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct JournalRun {
+    #[serde(alias = "run_id")]
     pub session_id: String,
     pub created_at: String,
     pub moves: Vec<JournalMove>,
@@ -17,8 +18,13 @@ pub struct JournalRun {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct JournalMove {
-    pub source_path: String,
-    pub destination_path: String,
+    #[serde(default)]
+    pub run_id: String,
+    #[serde(alias = "source_path")]
+    pub original_path: String,
+    #[serde(alias = "destination_path")]
+    pub new_path: String,
+    #[serde(default = "default_timestamp")]
     pub timestamp: String,
 }
 
@@ -56,8 +62,9 @@ pub fn append_run(path: &Path, session_id: &str, moved_files: &[MovedFile]) -> A
         moves: moved_files
             .iter()
             .map(|item| JournalMove {
-                source_path: item.source_path.clone(),
-                destination_path: item.destination_path.clone(),
+                run_id: session_id.to_string(),
+                original_path: item.source_path.clone(),
+                new_path: item.destination_path.clone(),
                 timestamp: Utc::now().to_rfc3339(),
             })
             .collect(),
@@ -112,47 +119,48 @@ pub fn undo_last_run(path: &Path) -> AppResult<UndoResult> {
     };
 
     for movement in last.moves.iter().rev() {
-        let src = Path::new(&movement.source_path);
-        let dest = Path::new(&movement.destination_path);
+        let original = Path::new(&movement.original_path);
+        let current = Path::new(&movement.new_path);
 
-        if !dest.exists() {
+        if !current.exists() {
             result.skipped += 1;
             result.details.push(UndoDetail {
-                source_path: movement.source_path.clone(),
-                destination_path: movement.destination_path.clone(),
+                source_path: movement.original_path.clone(),
+                destination_path: movement.new_path.clone(),
                 status: "skipped".to_string(),
                 message: "destination no longer exists".to_string(),
             });
             continue;
         }
 
-        if src.exists() {
+        if original.exists() {
             result.skipped += 1;
             result.details.push(UndoDetail {
-                source_path: movement.source_path.clone(),
-                destination_path: movement.destination_path.clone(),
+                source_path: movement.original_path.clone(),
+                destination_path: movement.new_path.clone(),
                 status: "skipped".to_string(),
                 message: "source path already occupied".to_string(),
             });
             continue;
         }
 
-        if let Some(parent) = src.parent() {
+        if let Some(parent) = original.parent() {
             fs::create_dir_all(parent)?;
         }
 
-        let move_back: Result<(), std::io::Error> = std::fs::rename(dest, src).or_else(|_| {
-            std::fs::copy(dest, src)?;
-            std::fs::remove_file(dest)?;
-            Ok(())
-        });
+        let move_back: Result<(), std::io::Error> =
+            std::fs::rename(current, original).or_else(|_| {
+                std::fs::copy(current, original)?;
+                std::fs::remove_file(current)?;
+                Ok(())
+            });
 
         match move_back {
             Ok(()) => {
                 result.restored += 1;
                 result.details.push(UndoDetail {
-                    source_path: movement.source_path.clone(),
-                    destination_path: movement.destination_path.clone(),
+                    source_path: movement.original_path.clone(),
+                    destination_path: movement.new_path.clone(),
                     status: "restored".to_string(),
                     message: "moved back".to_string(),
                 });
@@ -160,8 +168,8 @@ pub fn undo_last_run(path: &Path) -> AppResult<UndoResult> {
             Err(err) => {
                 result.errors += 1;
                 result.details.push(UndoDetail {
-                    source_path: movement.source_path.clone(),
-                    destination_path: movement.destination_path.clone(),
+                    source_path: movement.original_path.clone(),
+                    destination_path: movement.new_path.clone(),
                     status: "error".to_string(),
                     message: err.to_string(),
                 });
@@ -170,4 +178,8 @@ pub fn undo_last_run(path: &Path) -> AppResult<UndoResult> {
     }
 
     Ok(result)
+}
+
+fn default_timestamp() -> String {
+    Utc::now().to_rfc3339()
 }

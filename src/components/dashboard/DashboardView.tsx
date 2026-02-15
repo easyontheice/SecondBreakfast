@@ -83,6 +83,12 @@ export function DashboardView({
       </section>
 
       <ActivityFeed items={activity} onClear={onClearActivity} />
+
+      <section className="rounded-2xl border border-[hsl(var(--primary)/0.5)] bg-[linear-gradient(180deg,hsl(var(--foreground)/0.09),hsl(var(--foreground)/0.04))] px-5 py-4 text-center shadow-soft">
+        <p className="font-heading text-2xl leading-tight text-foreground/95">
+          Because files deserve proper placement before elevenses.
+        </p>
+      </section>
     </div>
   );
 }
