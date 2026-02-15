@@ -60,20 +60,22 @@ git tag v0.1.1
 git push origin main --tags
 ```
 
-## 4) Build installers
+Pushing tag `vX.Y.Z` triggers:
+- `.github/workflows/release-windows.yml`
+- It builds Windows installers and uploads them to the GitHub release automatically.
+
+## 4) Automatic release output
+
+Expected release assets:
+- `*.msi` from `src-tauri/target/release/bundle/msi/`
+- `*-setup.exe` from `src-tauri/target/release/bundle/nsis/`
+
+You can also run the release workflow manually from GitHub Actions using an existing tag.
+
+## 5) Optional local packaging check
 
 ```bash
 npm run tauri build
 ```
 
-Expected artifacts (Windows):
-- `src-tauri/target/release/bundle/msi/`
-- `src-tauri/target/release/bundle/nsis/`
-
 See `docs/BUILD.md` for Ubuntu packaging steps.
-
-## 5) Publish release
-
-- Create GitHub release from tag `vX.Y.Z`.
-- Upload installer artifacts.
-- Include release notes with key changes and known issues.

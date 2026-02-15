@@ -83,6 +83,15 @@ This updates:
 GitHub Actions manual workflow:
 - `.github/workflows/version-bump.yml`
 
+## Auto-release workflow
+
+When you push a version tag (example `v0.1.1`), GitHub Actions builds and publishes Windows installers automatically:
+- `.github/workflows/release-windows.yml`
+
+Published assets:
+- `.msi` installer
+- `-setup.exe` installer
+
 ## Packaging and release docs
 
 See:
