@@ -52,6 +52,7 @@ pub fn execute_plan(app: &AppHandle, plan: &PlanPreview) -> AppResult<RunResult>
     execute_plan_impl(Some(app), plan)
 }
 
+#[cfg(test)]
 pub fn execute_plan_silent(plan: &PlanPreview) -> AppResult<RunResult> {
     execute_plan_impl(None, plan)
 }

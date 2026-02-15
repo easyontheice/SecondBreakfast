@@ -2,6 +2,7 @@ import { Folder, Undo } from "lucide-react";
 import { ActivityFeed } from "@/components/dashboard/ActivityFeed";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
 import type { ActivityItem, RunResult } from "@/types";
 
 interface DashboardViewProps {
@@ -52,6 +53,15 @@ export function DashboardView({
             </Button>
           </div>
         </CardHeader>
+        <CardContent className="space-y-2">
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span>{running ? "Sorting in progress" : "Idle"}</span>
+            <span>
+              {progress.moved} moved / {progress.skipped} skipped / {progress.errors} errors
+            </span>
+          </div>
+          <Progress value={running ? undefined : 100} />
+        </CardContent>
       </Card>
 
       <section className="grid gap-4 md:grid-cols-4">

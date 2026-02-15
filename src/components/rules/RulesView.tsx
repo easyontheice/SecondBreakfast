@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { Download, Upload } from "lucide-react";
+import { type ComponentType, useMemo, useState } from "react";
+import { Archive, Code, Database, Download, FileText, Film, Folder, Image, Music, Upload } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,6 +14,17 @@ interface RulesViewProps {
   onExport: () => void;
   onImport: (payload: string) => void;
 }
+
+const categoryIcons: Record<string, ComponentType<{ className?: string }>> = {
+  Documents: FileText,
+  Images: Image,
+  Video: Film,
+  Audio: Music,
+  Archives: Archive,
+  Code,
+  Executables: Folder,
+  Data: Database
+};
 
 export function RulesView({ rules, onChange, onSave, onRevert, onExport, onImport }: RulesViewProps) {
   const [newExtByCategory, setNewExtByCategory] = useState<Record<string, string>>({});
@@ -31,75 +42,81 @@ export function RulesView({ rules, onChange, onSave, onRevert, onExport, onImpor
       </div>
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {rules.categories.map((category) => (
-          <Card key={category.id}>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between text-base">
-                {category.name}
-                <Badge>{category.extensions.length}</Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex flex-wrap gap-2">
-                {category.extensions.map((ext) => (
-                  <button
-                    key={ext}
-                    className="rounded-full border border-border bg-secondary px-2.5 py-1 text-xs"
+        {rules.categories.map((category) => {
+          const Icon = categoryIcons[category.name] ?? FileText;
+          return (
+            <Card key={category.id}>
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between text-base">
+                  <span className="flex items-center gap-2">
+                    <Icon className="h-4 w-4" />
+                    {category.name}
+                  </span>
+                  <Badge>{category.extensions.length}</Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex flex-wrap gap-2">
+                  {category.extensions.map((ext) => (
+                    <button
+                      key={ext}
+                      className="rounded-full border border-border bg-secondary px-2.5 py-1 text-xs"
+                      onClick={() => {
+                        onChange({
+                          ...rules,
+                          categories: rules.categories.map((item) =>
+                            item.id === category.id
+                              ? {
+                                  ...item,
+                                  extensions: item.extensions.filter((entry) => entry !== ext)
+                                }
+                              : item
+                          )
+                        });
+                      }}
+                    >
+                      .{ext}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Add extension"
+                    value={newExtByCategory[category.id] ?? ""}
+                    onChange={(event) =>
+                      setNewExtByCategory((prev) => ({
+                        ...prev,
+                        [category.id]: event.target.value
+                      }))
+                    }
+                  />
+                  <Button
+                    variant="secondary"
                     onClick={() => {
+                      const value = (newExtByCategory[category.id] ?? "").trim().replace(/^\./, "").toLowerCase();
+                      if (!value) {
+                        return;
+                      }
+
                       onChange({
                         ...rules,
                         categories: rules.categories.map((item) =>
-                          item.id === category.id
-                            ? {
-                                ...item,
-                                extensions: item.extensions.filter((entry) => entry !== ext)
-                              }
+                          item.id === category.id && !item.extensions.includes(value)
+                            ? { ...item, extensions: [...item.extensions, value] }
                             : item
                         )
                       });
+                      setNewExtByCategory((prev) => ({ ...prev, [category.id]: "" }));
                     }}
                   >
-                    .{ext}
-                  </button>
-                ))}
-              </div>
-
-              <div className="flex gap-2">
-                <Input
-                  placeholder="Add extension"
-                  value={newExtByCategory[category.id] ?? ""}
-                  onChange={(event) =>
-                    setNewExtByCategory((prev) => ({
-                      ...prev,
-                      [category.id]: event.target.value
-                    }))
-                  }
-                />
-                <Button
-                  variant="secondary"
-                  onClick={() => {
-                    const value = (newExtByCategory[category.id] ?? "").trim().replace(/^\./, "").toLowerCase();
-                    if (!value) {
-                      return;
-                    }
-
-                    onChange({
-                      ...rules,
-                      categories: rules.categories.map((item) =>
-                        item.id === category.id && !item.extensions.includes(value)
-                          ? { ...item, extensions: [...item.extensions, value] }
-                          : item
-                      )
-                    });
-                    setNewExtByCategory((prev) => ({ ...prev, [category.id]: "" }));
-                  }}
-                >
-                  Add
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+                    Add
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
       </section>
 
       <footer className="fixed bottom-4 left-1/2 z-20 flex w-[min(860px,92vw)] -translate-x-1/2 items-center justify-between rounded-2xl border border-border bg-card/95 p-3 shadow-soft backdrop-blur">
