@@ -11,16 +11,23 @@ use cleanup::CleanupResult;
 use executor::RunResult;
 use planner::PlanPreview;
 use rules::{Rules, ValidationResult};
-use std::path::PathBuf;
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager, State};
-use watcher::{DebouncedAction, WatcherController, WatcherStatus};
+use watcher::{DebouncedAction, EventObserver, WatcherController, WatcherStatus};
 
 #[derive(Clone)]
 struct AppState {
     inner: Arc<AppStateInner>,
+}
+
+#[derive(Debug, Clone)]
+struct OriginHint {
+    observed_path: PathBuf,
+    original_path: PathBuf,
 }
 
 struct AppStateInner {
@@ -30,19 +37,23 @@ struct AppStateInner {
     watcher: Arc<Mutex<WatcherController>>,
     pipeline_running: AtomicBool,
     undo_in_progress: AtomicBool,
+    origin_hints: Mutex<Vec<OriginHint>>,
 }
+
 
 impl AppState {
     fn new(rules: Rules, rules_path: PathBuf, journal_path: PathBuf) -> Self {
         Self {
             inner: Arc::new(AppStateInner {
-                rules: Mutex::new(rules),
-                rules_path,
-                journal_path,
-                watcher: Arc::new(Mutex::new(WatcherController::default())),
-                pipeline_running: AtomicBool::new(false),
-                undo_in_progress: AtomicBool::new(false),
-            }),
+            rules: Mutex::new(rules),
+            rules_path,
+            journal_path,
+            watcher: Arc::new(Mutex::new(WatcherController::default())),
+            pipeline_running: AtomicBool::new(false),
+            undo_in_progress: AtomicBool::new(false),
+            origin_hints: Mutex::new(Vec::new()),
+}),
+
         }
     }
 
@@ -190,7 +201,16 @@ fn run_now_internal(app: &AppHandle, state: &AppState) -> AppResult<RunResult> {
         apply_cleanup(&mut result, cleanup_result);
     }
 
-    journal::append_run(&state.inner.journal_path, &result.session_id, &result.moved_files)?;
+    let overrides = resolve_original_path_overrides(state, &result.moved_files)?;
+    journal::append_run(
+        &state.inner.journal_path,
+        &result.session_id,
+        &result.moved_files,
+        &overrides,
+    )?;
+    clear_origin_hints(state)?;
+
+
     if should_emit_run_complete(&result) {
         let _ = app.emit("run_complete", result.clone());
     }
@@ -237,9 +257,20 @@ fn start_watcher_internal(app: &AppHandle, state: &AppState) -> AppResult<()> {
             return;
         }
 
+        if let Err(err) = prune_origin_hints(&state_clone) {
+            executor::emit_log(&app_handle, "warn", format!("prune_origin_hints failed: {}", err));
+        }
+
         if let Err(err) = run_now_internal(&app_handle, &state_clone) {
             executor::emit_log(&app_handle, "error", format!("watcher-triggered run failed: {}", err));
         }
+    });
+
+
+    let hint_state = state.clone();
+    let hint_sort_root = sort_root.clone();
+    let observer: EventObserver = Arc::new(move |event| {
+        capture_origin_hint(&hint_state, &hint_sort_root, event);
     });
 
     watcher::start_watcher(
@@ -247,6 +278,7 @@ fn start_watcher_internal(app: &AppHandle, state: &AppState) -> AppResult<()> {
         sort_root,
         Duration::from_secs(2),
         action,
+        Some(observer),
     )?;
 
     emit_watcher_status(app, state)
@@ -270,6 +302,132 @@ fn emit_watcher_status(app: &AppHandle, state: &AppState) -> AppResult<()> {
     let status = watcher_status_internal(state)?;
     let _ = app.emit("watcher_status", status);
     Ok(())
+}
+
+fn clear_origin_hints(state: &AppState) -> AppResult<()> {
+    state.inner.origin_hints.lock()?.clear();
+    Ok(())
+}
+
+fn capture_origin_hint(state: &AppState, sort_root: &Path, event: &notify::Event) {
+    if event.paths.len() < 2 {
+        return;
+    }
+
+    let from = event.paths[0].clone();
+    let to = event.paths[1].clone();
+
+    let from_inside = from.starts_with(sort_root);
+    let to_inside = to.starts_with(sort_root);
+
+    let Ok(mut hints) = state.inner.origin_hints.lock() else {
+        return;
+    };
+
+    if to_inside && !from_inside {
+        if !from.is_absolute() || !to.is_absolute() {
+            return;
+        }
+
+        let observed_key = path_key(&to);
+        if let Some(existing) = hints
+            .iter_mut()
+            .find(|entry| path_key(&entry.observed_path) == observed_key)
+        {
+            existing.original_path = from;
+        } else {
+            hints.push(OriginHint {
+                observed_path: to,
+                original_path: from,
+            });
+        }
+        return;
+    }
+
+    if from_inside && !to_inside {
+        hints.retain(|entry| !entry.observed_path.starts_with(&from));
+        return;
+    }
+
+    if from_inside && to_inside {
+        for entry in hints.iter_mut() {
+            if !entry.observed_path.starts_with(&from) {
+                continue;
+            }
+
+            let Ok(relative) = entry.observed_path.strip_prefix(&from) else {
+                continue;
+            };
+
+            entry.observed_path = if relative.as_os_str().is_empty() {
+                to.clone()
+            } else {
+                to.join(relative)
+            };
+        }
+    }
+}
+
+fn resolve_original_path_overrides(
+    state: &AppState,
+    moved_files: &[executor::MovedFile],
+) -> AppResult<HashMap<String, String>> {
+    let mut hints = state.inner.origin_hints.lock()?.clone();
+    hints.sort_by(|left, right| {
+        right
+            .observed_path
+            .components()
+            .count()
+            .cmp(&left.observed_path.components().count())
+    });
+
+    let mut overrides = HashMap::with_capacity(moved_files.len());
+
+    for moved in moved_files {
+        let source = PathBuf::from(&moved.source_path);
+        let mut resolved = source.clone();
+
+        if source.is_absolute() {
+            for hint in &hints {
+                let Ok(relative) = source.strip_prefix(&hint.observed_path) else {
+                    continue;
+                };
+
+                let candidate = if relative.as_os_str().is_empty() {
+                    hint.original_path.clone()
+                } else {
+                    hint.original_path.join(relative)
+                };
+
+                if candidate.is_absolute() {
+                    resolved = candidate;
+                }
+                break;
+            }
+        }
+
+        overrides.insert(
+            moved.source_path.clone(),
+            resolved.to_string_lossy().to_string(),
+        );
+    }
+
+    Ok(overrides)
+}
+
+fn prune_origin_hints(state: &AppState) -> AppResult<()> {
+    let mut hints = state.inner.origin_hints.lock()?;
+    hints.retain(|entry| entry.observed_path.exists());
+    Ok(())
+}
+
+fn path_key(path: &Path) -> String {
+    let raw = path.to_string_lossy();
+    if cfg!(windows) {
+        raw.to_ascii_lowercase()
+    } else {
+        raw.to_string()
+    }
 }
 
 fn apply_cleanup(result: &mut RunResult, cleanup: CleanupResult) {
@@ -317,7 +475,7 @@ pub fn run() {
 #[cfg(test)]
 mod acceptance_tests {
     use super::*;
-    use std::collections::BTreeSet;
+    use std::collections::{BTreeSet, HashMap};
     use std::fs;
     use std::path::{Path, PathBuf};
     use uuid::Uuid;
@@ -486,8 +644,14 @@ mod acceptance_tests {
         assert_eq!(run.errors, 0);
         assert!(run.moved >= 2);
 
-        let journal_path = root.join("journal.jsonl");
-        journal::append_run(&journal_path, &run.session_id, &run.moved_files).expect("append run");
+       let overrides = resolve_original_path_overrides(state, &run.moved_files)?;
+        journal::append_run(&journal_path, &run.session_id, &run.moved_files, &overrides)
+            .expect("append run");
+        clear_origin_hints(state).expect("clear origin hints");
+
+
+
+
 
         let conflict_source = PathBuf::from(&run.moved_files[0].source_path);
         write_file(&conflict_source, b"occupied");
@@ -501,3 +665,13 @@ mod acceptance_tests {
         tear_down(&root);
     }
 }
+
+
+
+
+
+
+
+
+
+

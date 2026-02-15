@@ -1,10 +1,12 @@
 use crate::errors::AppResult;
 use crate::executor::MovedFile;
 use chrono::Utc;
+use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 use std::fs::{self, OpenOptions};
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
+
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JournalRun {
@@ -62,7 +64,12 @@ pub struct UndoResult {
     pub details: Vec<UndoDetail>,
 }
 
-pub fn append_run(path: &Path, session_id: &str, moved_files: &[MovedFile]) -> AppResult<()> {
+pub fn append_run(
+    path: &Path,
+    session_id: &str,
+    moved_files: &[MovedFile],
+    original_path_overrides: &HashMap<String, String>,
+) -> AppResult<()> {
     if moved_files.is_empty() {
         return Ok(());
     }
@@ -78,7 +85,11 @@ pub fn append_run(path: &Path, session_id: &str, moved_files: &[MovedFile]) -> A
             .iter()
             .map(|item| JournalMove {
                 run_id: session_id.to_string(),
-                original_path: item.source_path.clone(),
+                original_path: original_path_overrides
+                    .get(&item.source_path)
+                    .filter(|value| !value.trim().is_empty())
+                    .cloned()
+                    .unwrap_or_else(|| item.source_path.clone()),
                 new_path: item.destination_path.clone(),
                 timestamp: Utc::now().to_rfc3339(),
                 status: default_moved_status(),
@@ -292,6 +303,7 @@ fn default_moved_status() -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::HashMap;
     use std::path::PathBuf;
     use uuid::Uuid;
 
@@ -352,7 +364,9 @@ mod tests {
             collision_renamed: false,
         }];
 
-        append_run(&journal_path, "run-1", &moved).expect("append journal");
+        let overrides = HashMap::new();
+        append_run(&journal_path, "run-1", &moved, &overrides).expect("append journal");
+
 
         let line = fs::read_to_string(&journal_path).expect("read journal");
         assert!(line.contains("\"original_path\""));
@@ -403,3 +417,5 @@ mod tests {
         let _ = fs::remove_dir_all(&root);
     }
 }
+
+

@@ -8,6 +8,7 @@ use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
 pub type DebouncedAction = Arc<dyn Fn() + Send + Sync + 'static>;
+pub type EventObserver = Arc<dyn Fn(&Event) + Send + Sync + 'static>;
 
 #[derive(Debug)]
 pub struct WatcherController {
@@ -38,6 +39,7 @@ pub fn start_watcher(
     sort_root: PathBuf,
     debounce: Duration,
     action: DebouncedAction,
+    observer: Option<EventObserver>,
 ) -> AppResult<()> {
     let mut guard = controller.lock()?;
     if guard.running {
@@ -69,7 +71,7 @@ pub fn start_watcher(
         }
 
         let _ = startup_tx.send(Ok(()));
-        run_loop(event_rx, stop_rx, debounce, action);
+        run_loop(event_rx, stop_rx, debounce, action, observer);
     });
 
     match startup_rx.recv_timeout(Duration::from_secs(5)) {
@@ -113,6 +115,7 @@ fn run_loop(
     stop_rx: Receiver<()>,
     debounce: Duration,
     action: DebouncedAction,
+    observer: Option<EventObserver>,
 ) {
     let mut pending_at: Option<Instant> = None;
 
@@ -123,6 +126,10 @@ fn run_loop(
 
         match event_rx.recv_timeout(Duration::from_millis(200)) {
             Ok(Ok(event)) => {
+                if let Some(handler) = observer.as_ref() {
+                    handler(&event);
+                }
+
                 if is_sorting_relevant(&event.kind) {
                     pending_at = Some(Instant::now());
                 }
