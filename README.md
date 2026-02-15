@@ -67,12 +67,29 @@ Run desktop app in dev mode:
 npm run tauri dev
 ```
 
-## Packaging
+## Version bump workflow
+
+Local:
+
+```bash
+npm run bump:version -- 0.1.1
+```
+
+This updates:
+- `package.json`
+- `src-tauri/Cargo.toml`
+- `src-tauri/tauri.conf.json`
+
+GitHub Actions manual workflow:
+- `.github/workflows/version-bump.yml`
+
+## Packaging and release docs
 
 See:
 
 - `docs/BUILD.md` for Windows and Ubuntu packaging steps.
 - `docs/ACCEPTANCE.md` for acceptance test run details.
+- `docs/RELEASE_CHECKLIST.md` for release process and tagging.
 
 ## Config persistence
 
