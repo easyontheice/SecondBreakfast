@@ -97,6 +97,8 @@ export interface UndoResult {
   sessionId: string | null;
   restored: number;
   skipped: number;
+  conflicts: number;
+  missing: number;
   errors: number;
   details: UndoDetail[];
 }

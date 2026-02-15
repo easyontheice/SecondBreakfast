@@ -59,6 +59,10 @@ export function onRunLog(handler: (payload: RunLogEvent) => void) {
   return listen<RunLogEvent>("run_log", (event) => handler(event.payload));
 }
 
+export function onRunComplete(handler: (payload: RunResult) => void) {
+  return listen<RunResult>("run_complete", (event) => handler(event.payload));
+}
+
 export function onWatcherStatus(handler: (payload: WatcherStatus) => void) {
   return listen<WatcherStatus>("watcher_status", (event) => handler(event.payload));
 }

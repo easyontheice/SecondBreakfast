@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 
 interface OnboardingProps {
   sortRoot: string;
+  canStart: boolean;
   onPick: (path: string) => void;
   onStart: () => void;
 }
@@ -21,7 +22,7 @@ const folders = [
   "Misc"
 ];
 
-export function Onboarding({ sortRoot, onPick, onStart }: OnboardingProps) {
+export function Onboarding({ sortRoot, canStart, onPick, onStart }: OnboardingProps) {
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-3xl items-center p-6">
       <Card className="w-full">
@@ -57,7 +58,9 @@ export function Onboarding({ sortRoot, onPick, onStart }: OnboardingProps) {
             </div>
           </div>
 
-          <Button className="w-full" onClick={onStart}>
+          <p className="text-xs text-muted-foreground">Select a folder before starting watcher setup.</p>
+
+          <Button className="w-full" disabled={!canStart} onClick={onStart}>
             Start Watching
           </Button>
         </CardContent>

@@ -29,6 +29,7 @@ struct AppStateInner {
     journal_path: PathBuf,
     watcher: Arc<Mutex<WatcherController>>,
     pipeline_running: AtomicBool,
+    undo_in_progress: AtomicBool,
 }
 
 impl AppState {
@@ -40,6 +41,7 @@ impl AppState {
                 journal_path,
                 watcher: Arc::new(Mutex::new(WatcherController::default())),
                 pipeline_running: AtomicBool::new(false),
+                undo_in_progress: AtomicBool::new(false),
             }),
         }
     }
@@ -72,6 +74,23 @@ impl<'a> RunGuard<'a> {
 }
 
 impl Drop for RunGuard<'_> {
+    fn drop(&mut self) {
+        self.flag.store(false, Ordering::SeqCst);
+    }
+}
+
+struct BoolGuard<'a> {
+    flag: &'a AtomicBool,
+}
+
+impl<'a> BoolGuard<'a> {
+    fn set(flag: &'a AtomicBool, value: bool) -> Self {
+        flag.store(value, Ordering::SeqCst);
+        Self { flag }
+    }
+}
+
+impl Drop for BoolGuard<'_> {
     fn drop(&mut self) {
         self.flag.store(false, Ordering::SeqCst);
     }
@@ -133,7 +152,6 @@ fn set_rules_internal(state: &AppState, rules: Rules) -> AppResult<()> {
         return Err(AppError::Validation(validation.errors.join("; ")));
     }
 
-    rules::ensure_sort_root_dirs(&rules)?;
     rules::save_rules(&state.inner.rules_path, &rules)?;
     state.replace_rules(rules)?;
     Ok(())
@@ -173,11 +191,13 @@ fn run_now_internal(app: &AppHandle, state: &AppState) -> AppResult<RunResult> {
     }
 
     journal::append_run(&state.inner.journal_path, &result.session_id, &result.moved_files)?;
+    let _ = app.emit("run_complete", result.clone());
     Ok(result)
 }
 
 fn undo_last_run_internal(app: &AppHandle, state: &AppState) -> AppResult<journal::UndoResult> {
     let _guard = RunGuard::acquire(&state.inner.pipeline_running)?;
+    let _undo_guard = BoolGuard::set(&state.inner.undo_in_progress, true);
     let watcher_was_running = state.watcher_running()?;
 
     if watcher_was_running {
@@ -196,8 +216,8 @@ fn undo_last_run_internal(app: &AppHandle, state: &AppState) -> AppResult<journa
         app,
         "info",
         format!(
-            "undo complete: restored={}, skipped={}, errors={}",
-            result.restored, result.skipped, result.errors
+            "undo complete: restored={}, skipped={}, conflicts={}, missing={}, errors={}",
+            result.restored, result.skipped, result.conflicts, result.missing, result.errors
         ),
     );
     Ok(result)
@@ -211,6 +231,10 @@ fn start_watcher_internal(app: &AppHandle, state: &AppState) -> AppResult<()> {
     let app_handle = app.clone();
     let state_clone = state.clone();
     let action: DebouncedAction = Arc::new(move || {
+        if state_clone.inner.undo_in_progress.load(Ordering::SeqCst) {
+            return;
+        }
+
         if let Err(err) = run_now_internal(&app_handle, &state_clone) {
             executor::emit_log(&app_handle, "error", format!("watcher-triggered run failed: {}", err));
         }
@@ -264,7 +288,6 @@ pub fn run() {
             let rules_path = rules::rules_path()?;
             let journal_path = rules::journal_path()?;
             let rules = rules::load_or_create_rules(&rules_path)?;
-            rules::ensure_sort_root_dirs(&rules)?;
 
             app.manage(AppState::new(rules, rules_path, journal_path));
             Ok(())
@@ -465,7 +488,7 @@ mod acceptance_tests {
 
         let undo = journal::undo_last_run(&journal_path).expect("undo last run");
 
-        assert!(undo.skipped >= 1);
+        assert!(undo.conflicts >= 1);
         assert!(undo.restored >= 1);
         assert_eq!(undo.errors, 0);
 

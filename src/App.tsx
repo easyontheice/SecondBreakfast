@@ -12,6 +12,7 @@ import { AppShell } from "@/components/shell/AppShell";
 import {
   dryRun,
   getRules,
+  onRunComplete,
   onRunLog,
   onRunProgress,
   onWatcherStatus,
@@ -24,6 +25,8 @@ import {
   watcherStatus
 } from "@/lib/api";
 import type { ActivityItem, PlanPreview, Rules, RunResult } from "@/types";
+
+const ONBOARDING_KEY = "secondbreakfast.onboarded.v2";
 
 function createActivity(
   partial: Omit<ActivityItem, "id" | "at">,
@@ -48,6 +51,7 @@ function App() {
   const [dryPlan, setDryPlan] = useState<PlanPreview | null>(null);
   const [dryOpen, setDryOpen] = useState(false);
   const [onboarding, setOnboarding] = useState(false);
+  const [pickedSortRoot, setPickedSortRoot] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -63,7 +67,7 @@ function App() {
         setDraftRules(nextRules);
         setWatcherRunning(status.running);
 
-        const done = localStorage.getItem("secondbreakfast.onboarded") === "true";
+        const done = localStorage.getItem(ONBOARDING_KEY) === "true";
         setOnboarding(!done);
       } catch (error) {
         toast.error(`Failed to load app state: ${String(error)}`);
@@ -102,6 +106,21 @@ function App() {
         ]);
       });
 
+      const unlistenRunComplete = await onRunComplete((payload) => {
+        setLastRun(payload);
+        setProgress({ moved: payload.moved, skipped: payload.skipped, errors: payload.errors });
+
+        const totalProcessed = payload.moved + payload.skipped;
+        setActivity((prev) => [
+          createActivity({
+            level: payload.errors > 0 ? "warn" : "info",
+            message: `${payload.moved}/${totalProcessed} files moved`,
+            sourcePath: `session ${payload.sessionId}`
+          }),
+          ...prev
+        ]);
+      });
+
       const unlistenWatcher = await onWatcherStatus((payload) => {
         setWatcherRunning(payload.running);
       });
@@ -109,12 +128,14 @@ function App() {
       if (disposed) {
         unlistenProgress();
         unlistenLog();
+        unlistenRunComplete();
         unlistenWatcher();
       }
 
       return () => {
         unlistenProgress();
         unlistenLog();
+        unlistenRunComplete();
         unlistenWatcher();
       };
     }
@@ -148,17 +169,6 @@ function App() {
       setRunning(true);
       toast.info("Run started");
       const result = await runNow();
-      setLastRun(result);
-      setProgress({ moved: result.moved, skipped: result.skipped, errors: result.errors });
-      const totalProcessed = result.moved + result.skipped;
-      setActivity((prev) => [
-        createActivity({
-          level: result.errors > 0 ? "warn" : "info",
-          message: `${result.moved}/${totalProcessed} files moved`,
-          sourcePath: `session ${result.sessionId}`
-        }),
-        ...prev
-      ]);
       toast.success(`Run complete: ${result.moved} moved`);
     } catch (error) {
       toast.error(`Run failed: ${String(error)}`);
@@ -184,7 +194,7 @@ function App() {
       setActivity((prev) => [
         createActivity({
           level: result.errors > 0 ? "warn" : "info",
-          message: `Undo: ${result.restored} restored, ${result.skipped} skipped`
+          message: `Undo: ${result.restored} restored, ${result.conflicts} conflicts, ${result.missing} missing, ${result.errors} errors`
         }),
         ...prev
       ]);
@@ -207,7 +217,7 @@ function App() {
     }
   };
 
-  const handleSortRootChange = async (path?: string) => {
+  const handleSortRootChange = async (path?: string, markPicked = false) => {
     try {
       const nextPath = path ?? (await open({ directory: true, multiple: false }));
       if (typeof nextPath !== "string") {
@@ -217,6 +227,9 @@ function App() {
       const updated = await getRules();
       setRules(updated);
       setDraftRules(updated);
+      if (markPicked) {
+        setPickedSortRoot(true);
+      }
       toast.success("Sort folder updated");
     } catch (error) {
       toast.error(`Failed to change sort folder: ${String(error)}`);
@@ -227,10 +240,16 @@ function App() {
     return (
       <Onboarding
         sortRoot={sortRoot}
-        onPick={(path) => void handleSortRootChange(path)}
+        canStart={pickedSortRoot}
+        onPick={(path) => void handleSortRootChange(path, true)}
         onStart={async () => {
+          if (!pickedSortRoot) {
+            toast.error("Select your Sort Folder before continuing");
+            return;
+          }
+
           await startWatcher();
-          localStorage.setItem("secondbreakfast.onboarded", "true");
+          localStorage.setItem(ONBOARDING_KEY, "true");
           setOnboarding(false);
           toast.success("Watcher started");
         }}
@@ -328,4 +347,3 @@ function App() {
 }
 
 export default App;
-
