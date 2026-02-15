@@ -30,6 +30,7 @@ It watches a configurable `sortRoot` folder and sorts dropped files/folders into
 ## Development
 
 Prerequisites:
+
 - Node.js 20+
 - Rust toolchain
 - Tauri desktop prerequisites for your OS
@@ -53,18 +54,34 @@ cd src-tauri
 cargo check
 ```
 
+Run acceptance tests:
+
+```bash
+cd src-tauri
+cargo test acceptance_ -- --nocapture
+```
+
 Run desktop app in dev mode:
 
 ```bash
 npm run tauri dev
 ```
 
+## Packaging
+
+See:
+
+- `docs/BUILD.md` for Windows and Ubuntu packaging steps.
+- `docs/ACCEPTANCE.md` for acceptance test run details.
+
 ## Config persistence
 
 Rules are saved in OS config directory:
+
 - `sort-root/rules.json`
 
 Journal for undo is append-only JSONL:
+
 - `sort-root/journal.jsonl`
 
 ## Spec
