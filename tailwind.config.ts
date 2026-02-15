@@ -31,7 +31,7 @@ const config: Config = {
         sm: "calc(var(--radius) - 4px)"
       },
       boxShadow: {
-        soft: "0 10px 30px -12px hsl(210 80% 3% / 0.45)"
+        soft: "0 10px 30px -12px hsl(var(--background) / 0.55)"
       }
     }
   },
@@ -39,3 +39,4 @@ const config: Config = {
 };
 
 export default config;
+

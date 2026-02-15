@@ -1,7 +1,9 @@
+import { useEffect, useState } from "react";
 import { NavLink } from "react-router-dom";
 import { LayoutDashboard, Pause, Play, Settings, Trash2, Wrench } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
 interface AppShellProps {
@@ -12,6 +14,44 @@ interface AppShellProps {
   onDryRun: () => void;
   onToggleWatcher: () => void;
   children: React.ReactNode;
+}
+
+type ThemeName = "shire" | "frost" | "midnight" | "parchment";
+
+const THEME_STORAGE_KEY = "theme";
+const DEFAULT_THEME: ThemeName = "shire";
+
+const themeOptions: Array<{ value: ThemeName; label: string }> = [
+  { value: "shire", label: "Shire" },
+  { value: "frost", label: "Frost" },
+  { value: "midnight", label: "Midnight" },
+  { value: "parchment", label: "Parchment" }
+];
+
+function isThemeName(value: string | null | undefined): value is ThemeName {
+  return value === "shire" || value === "frost" || value === "midnight" || value === "parchment";
+}
+
+function resolveInitialTheme(): ThemeName {
+  if (typeof window === "undefined") {
+    return DEFAULT_THEME;
+  }
+
+  const htmlTheme = document.documentElement.dataset.theme;
+  if (isThemeName(htmlTheme)) {
+    return htmlTheme;
+  }
+
+  try {
+    const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
+    if (isThemeName(stored)) {
+      return stored;
+    }
+  } catch {
+    // Ignore storage read failures and fall back to default theme.
+  }
+
+  return DEFAULT_THEME;
 }
 
 const links = [
@@ -30,10 +70,22 @@ export function AppShell({
   onToggleWatcher,
   children
 }: AppShellProps) {
+  const [theme, setTheme] = useState<ThemeName>(() => resolveInitialTheme());
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+
+    try {
+      window.localStorage.setItem(THEME_STORAGE_KEY, theme);
+    } catch {
+      // Ignore storage write failures.
+    }
+  }, [theme]);
+
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_15%_0%,hsl(var(--primary)/0.12),transparent_45%),radial-gradient(circle_at_85%_100%,hsl(var(--accent)/0.16),transparent_45%)]">
       <div className="mx-auto grid max-w-[1440px] gap-6 px-6 py-7 md:grid-cols-[270px_1fr]">
-        <aside className="rounded-2xl border border-border bg-gradient-to-b from-[#121810] to-[#0f150f] p-4 shadow-soft">
+        <aside className="rounded-2xl border border-border bg-gradient-to-b from-[hsl(var(--surface))] to-[hsl(var(--background))] p-4 shadow-soft">
           <div className="mb-4 border-b border-border/70 pb-4">
             <h1 className="font-heading text-3xl font-semibold leading-none tracking-tight text-foreground">
               SecondBreakfast
@@ -72,11 +124,23 @@ export function AppShell({
         <div className="space-y-5">
           <header className="rounded-2xl border border-[hsl(var(--primary)/0.45)] bg-[linear-gradient(160deg,hsl(var(--card)),hsl(var(--background)))] p-4 shadow-soft">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">SecondBreakfast Desk</p>
-                <h2 className="font-heading text-3xl font-semibold leading-none tracking-tight text-foreground">
-                  Shire Sorting Board
-                </h2>
+              <div className="flex flex-wrap items-center">
+                <h2 className="font-heading text-3xl font-semibold leading-none tracking-tight text-foreground">Sorting Board</h2>
+                <div className="ml-0 flex items-center gap-2 sm:ml-[120px]">
+                  <span className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Theme</span>
+                  <Select value={theme} onValueChange={(value) => setTheme(isThemeName(value) ? value : DEFAULT_THEME)}>
+                    <SelectTrigger className="h-9 w-[170px] bg-[hsl(var(--surface)/0.8)]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {themeOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <Badge className={watcherRunning ? "border-[hsl(var(--primary)/0.5)] bg-[hsl(var(--primary)/0.2)] text-foreground" : ""}>

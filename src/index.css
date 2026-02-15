@@ -2,26 +2,77 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --background: 132 20% 7%;
-  --foreground: 42 28% 88%;
-  --card: 125 17% 11%;
-  --card-foreground: 42 28% 88%;
-  --popover: 125 17% 11%;
-  --popover-foreground: 42 28% 88%;
+:root,
+html[data-theme="shire"] {
+  --background: 140 18% 7%;
+  --surface: 128 17% 9%;
+  --card: 126 17% 11%;
+  --border: 124 16% 20%;
+  --text: 41 30% 88%;
+  --muted: 38 15% 68%;
   --primary: 39 48% 57%;
-  --primary-hover: 38 57% 63%;
-  --primary-foreground: 130 18% 9%;
-  --secondary: 129 15% 15%;
-  --secondary-foreground: 42 28% 88%;
-  --muted: 126 18% 9%;
-  --muted-foreground: 38 16% 68%;
-  --accent: 101 21% 47%;
-  --accent-foreground: 42 28% 88%;
-  --destructive: 10 41% 49%;
-  --border: 123 16% 20%;
-  --input: 123 16% 20%;
-  --ring: 39 48% 57%;
+  --primary-hover: 40 57% 64%;
+  --accent: 99 21% 46%;
+  --danger: 9 41% 49%;
+  color-scheme: dark;
+}
+
+html[data-theme="frost"] {
+  --background: 219 70% 8%;
+  --surface: 218 65% 12%;
+  --card: 217 61% 16%;
+  --border: 214 52% 25%;
+  --text: 182 82% 93%;
+  --muted: 201 27% 69%;
+  --primary: 198 78% 64%;
+  --primary-hover: 195 82% 71%;
+  --accent: 169 79% 54%;
+  --danger: 0 100% 71%;
+  color-scheme: dark;
+}
+
+html[data-theme="midnight"] {
+  --background: 213 29% 6%;
+  --surface: 215 36% 9%;
+  --card: 214 34% 12%;
+  --border: 216 32% 20%;
+  --text: 220 22% 92%;
+  --muted: 217 17% 70%;
+  --primary: 221 89% 72%;
+  --primary-hover: 221 100% 78%;
+  --accent: 172 66% 50%;
+  --danger: 0 91% 71%;
+  color-scheme: dark;
+}
+
+html[data-theme="parchment"] {
+  --background: 43 39% 93%;
+  --surface: 39 100% 96%;
+  --card: 40 71% 93%;
+  --border: 37 28% 78%;
+  --text: 218 22% 15%;
+  --muted: 217 11% 41%;
+  --primary: 216 49% 33%;
+  --primary-hover: 216 50% 42%;
+  --accent: 128 13% 43%;
+  --danger: 7 49% 46%;
+  color-scheme: light;
+}
+
+:root,
+html[data-theme] {
+  --foreground: var(--text);
+  --card-foreground: var(--text);
+  --popover: var(--surface);
+  --popover-foreground: var(--text);
+  --primary-foreground: var(--surface);
+  --secondary: var(--surface);
+  --secondary-foreground: var(--text);
+  --muted-foreground: var(--muted);
+  --accent-foreground: var(--text);
+  --destructive: var(--danger);
+  --input: var(--border);
+  --ring: var(--primary);
   --radius: 1rem;
 }
 
@@ -70,7 +121,7 @@ body::after {
   position: fixed;
   inset: 0;
   pointer-events: none;
-  background: radial-gradient(circle at center, transparent 35%, hsl(0 0% 0% / 0.28) 100%);
+  background: radial-gradient(circle at center, transparent 35%, hsl(var(--text) / 0.18) 100%);
 }
 
 h1,
@@ -82,3 +133,4 @@ h6,
 .font-heading {
   font-family: "Cormorant Garamond", Georgia, serif;
 }
+
