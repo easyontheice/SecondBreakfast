@@ -7,22 +7,31 @@ use std::io::{BufRead, BufReader, Write};
 use std::path::Path;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct JournalRun {
-    #[serde(alias = "run_id")]
+    #[serde(rename = "session_id", alias = "sessionId", alias = "run_id", alias = "runId")]
     pub session_id: String,
+    #[serde(rename = "created_at", alias = "createdAt", default = "default_timestamp")]
     pub created_at: String,
     pub moves: Vec<JournalMove>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct JournalMove {
-    #[serde(default)]
+    #[serde(rename = "run_id", alias = "runId", default)]
     pub run_id: String,
-    #[serde(alias = "source_path")]
+    #[serde(
+        rename = "original_path",
+        alias = "originalPath",
+        alias = "source_path",
+        alias = "sourcePath"
+    )]
     pub original_path: String,
-    #[serde(alias = "destination_path")]
+    #[serde(
+        rename = "new_path",
+        alias = "newPath",
+        alias = "destination_path",
+        alias = "destinationPath"
+    )]
     pub new_path: String,
     #[serde(default = "default_timestamp")]
     pub timestamp: String,
@@ -91,7 +100,13 @@ pub fn load_last_run(path: &Path) -> AppResult<Option<JournalRun>> {
         if line.is_empty() {
             continue;
         }
-        if let Ok(run) = serde_json::from_str::<JournalRun>(line) {
+
+        if let Ok(mut run) = serde_json::from_str::<JournalRun>(line) {
+            for movement in &mut run.moves {
+                if movement.run_id.is_empty() {
+                    movement.run_id = run.session_id.clone();
+                }
+            }
             last = Some(run);
         }
     }
@@ -182,4 +197,78 @@ pub fn undo_last_run(path: &Path) -> AppResult<UndoResult> {
 
 fn default_timestamp() -> String {
     Utc::now().to_rfc3339()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+    use uuid::Uuid;
+
+    fn temp_dir() -> PathBuf {
+        std::env::temp_dir().join(format!("sortroot-journal-{}", Uuid::new_v4()))
+    }
+
+    #[test]
+    fn undo_supports_legacy_camelcase_paths() {
+        let root = temp_dir();
+        fs::create_dir_all(&root).expect("create temp root");
+
+        let source = root.join("Drop").join("Nested").join("invoice.txt");
+        let destination = root.join("Documents").join("invoice.txt");
+
+        if let Some(parent) = destination.parent() {
+            fs::create_dir_all(parent).expect("create destination parent");
+        }
+        fs::write(&destination, b"payload").expect("write destination file");
+
+        let journal_path = root.join("journal.jsonl");
+        let legacy = serde_json::json!({
+            "sessionId": "legacy-run",
+            "createdAt": Utc::now().to_rfc3339(),
+            "moves": [
+                {
+                    "sourcePath": source.to_string_lossy(),
+                    "destinationPath": destination.to_string_lossy(),
+                    "timestamp": Utc::now().to_rfc3339()
+                }
+            ]
+        });
+        fs::write(&journal_path, format!("{}\n", legacy)).expect("write legacy journal");
+
+        let result = undo_last_run(&journal_path).expect("undo run");
+
+        assert_eq!(result.restored, 1);
+        assert!(source.exists());
+        assert!(!destination.exists());
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn append_run_writes_required_paths() {
+        let root = temp_dir();
+        fs::create_dir_all(&root).expect("create temp root");
+
+        let journal_path = root.join("journal.jsonl");
+        let moved = vec![MovedFile {
+            source_path: root.join("Drop").join("a.txt").to_string_lossy().to_string(),
+            destination_path: root
+                .join("Documents")
+                .join("a.txt")
+                .to_string_lossy()
+                .to_string(),
+            category: "Documents".to_string(),
+            collision_renamed: false,
+        }];
+
+        append_run(&journal_path, "run-1", &moved).expect("append journal");
+
+        let line = fs::read_to_string(&journal_path).expect("read journal");
+        assert!(line.contains("\"original_path\""));
+        assert!(line.contains("\"new_path\""));
+        assert!(line.contains("\"run_id\""));
+
+        let _ = fs::remove_dir_all(&root);
+    }
 }
