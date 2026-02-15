@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { HashRouter, Route, Routes } from "react-router-dom";
+import { getVersion } from "@tauri-apps/api/app";
 import { open } from "@tauri-apps/plugin-dialog";
+import { HashRouter, Route, Routes } from "react-router-dom";
 import { toast } from "sonner";
+import { CleanupView } from "@/components/cleanup/CleanupView";
 import { DryRunDialog } from "@/components/common/DryRunDialog";
 import { Onboarding } from "@/components/common/Onboarding";
-import { CleanupView } from "@/components/cleanup/CleanupView";
 import { DashboardView } from "@/components/dashboard/DashboardView";
 import { RulesView } from "@/components/rules/RulesView";
 import { SettingsView } from "@/components/settings/SettingsView";
@@ -48,20 +49,28 @@ function App() {
   const [dryPlan, setDryPlan] = useState<PlanPreview | null>(null);
   const [dryOpen, setDryOpen] = useState(false);
   const [onboarding, setOnboarding] = useState(false);
+  const [appVersion, setAppVersion] = useState("0.1.0");
 
   useEffect(() => {
     let active = true;
 
     async function boot() {
       try {
-        const [nextRules, status] = await Promise.all([getRules(), watcherStatus()]);
+        const [nextRules, status, version] = await Promise.all([
+          getRules(),
+          watcherStatus(),
+          getVersion().catch(() => "0.1.0")
+        ]);
         if (!active) {
           return;
         }
+
         setRules(nextRules);
         setDraftRules(nextRules);
         setWatcherRunning(status.running);
-        const done = localStorage.getItem("sortroot.onboarded") === "true";
+        setAppVersion(version);
+
+        const done = localStorage.getItem("secondbreakfast.onboarded") === "true";
         setOnboarding(!done);
       } catch (error) {
         toast.error(`Failed to load app state: ${String(error)}`);
@@ -85,20 +94,12 @@ function App() {
     async function bind() {
       const unlistenProgress = await onRunProgress((payload) => {
         setProgress({ moved: payload.moved, skipped: payload.skipped, errors: payload.errors });
-        if (payload.currentPath || payload.destPath) {
-          setActivity((prev) => [
-            createActivity({
-              level: "info",
-              message: "Moved file",
-              sourcePath: payload.currentPath,
-              destinationPath: payload.destPath
-            }),
-            ...prev
-          ]);
-        }
       });
 
       const unlistenLog = await onRunLog((payload) => {
+        if (payload.level === "info") {
+          return;
+        }
         setActivity((prev) => [
           createActivity({
             level: payload.level,
@@ -136,7 +137,11 @@ function App() {
   const sortRoot = useMemo(() => rules?.global.sortRoot ?? "", [rules]);
 
   if (loading || !rules || !draftRules) {
-    return <div className="grid min-h-screen place-items-center text-sm text-muted-foreground">Loading SortRoot...</div>;
+    return (
+      <div className="grid min-h-screen place-items-center text-sm text-muted-foreground">
+        Loading SecondBreakfast...
+      </div>
+    );
   }
 
   const liveSetRules = async (nextRules: Rules) => {
@@ -152,6 +157,15 @@ function App() {
       const result = await runNow();
       setLastRun(result);
       setProgress({ moved: result.moved, skipped: result.skipped, errors: result.errors });
+      const totalProcessed = result.moved + result.skipped;
+      setActivity((prev) => [
+        createActivity({
+          level: result.errors > 0 ? "warn" : "info",
+          message: `${result.moved}/${totalProcessed} files moved`,
+          sourcePath: `session ${result.sessionId}`
+        }),
+        ...prev
+      ]);
       toast.success(`Run complete: ${result.moved} moved`);
     } catch (error) {
       toast.error(`Run failed: ${String(error)}`);
@@ -174,6 +188,13 @@ function App() {
     try {
       const result = await undoLastRun();
       toast.success(`Undo complete: ${result.restored} restored`);
+      setActivity((prev) => [
+        createActivity({
+          level: result.errors > 0 ? "warn" : "info",
+          message: `Undo: ${result.restored} restored, ${result.skipped} skipped`
+        }),
+        ...prev
+      ]);
     } catch (error) {
       toast.error(`Undo failed: ${String(error)}`);
     }
@@ -216,7 +237,7 @@ function App() {
         onPick={(path) => void handleSortRootChange(path)}
         onStart={async () => {
           await startWatcher();
-          localStorage.setItem("sortroot.onboarded", "true");
+          localStorage.setItem("secondbreakfast.onboarded", "true");
           setOnboarding(false);
           toast.success("Watcher started");
         }}
@@ -228,6 +249,7 @@ function App() {
     <>
       <HashRouter>
         <AppShell
+          appVersion={appVersion}
           watcherRunning={watcherRunning}
           sortRoot={sortRoot}
           running={running}
@@ -246,6 +268,7 @@ function App() {
                   progress={progress}
                   onChangeSortRoot={() => void handleSortRootChange()}
                   onUndo={() => void handleUndo()}
+                  onClearActivity={() => setActivity([])}
                   running={running}
                 />
               }

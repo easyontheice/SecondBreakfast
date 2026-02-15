@@ -26,9 +26,9 @@ export function Onboarding({ sortRoot, onPick, onStart }: OnboardingProps) {
     <div className="mx-auto flex min-h-screen w-full max-w-3xl items-center p-6">
       <Card className="w-full">
         <CardHeader>
-          <CardTitle className="text-2xl">Choose your Sort Folder</CardTitle>
+          <CardTitle className="font-heading text-4xl">Choose your Sort Folder</CardTitle>
           <CardDescription>
-            SortRoot will watch this folder and auto-sort anything dropped into it.
+            SecondBreakfast will watch this folder and auto-sort anything dropped into it.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">

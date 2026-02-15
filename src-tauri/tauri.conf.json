@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "SortRoot",
+  "productName": "SecondBreakfast",
   "version": "0.1.1",
   "identifier": "com.easyontheice.sortroot",
   "build": {
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "SortRoot",
+        "title": "SecondBreakfast",
         "width": 1280,
         "height": 820,
         "minWidth": 1024,

@@ -1,10 +1,12 @@
-import { AlertTriangle, CheckCircle2, Info } from "lucide-react";
-import type { ActivityItem } from "@/types";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { AlertTriangle, CheckCircle2, Eraser, Info } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import type { ActivityItem } from "@/types";
 
 interface ActivityFeedProps {
   items: ActivityItem[];
+  onClear: () => void;
 }
 
 function groupedByDay(items: ActivityItem[]) {
@@ -18,27 +20,34 @@ function groupedByDay(items: ActivityItem[]) {
   return Array.from(map.entries());
 }
 
-export function ActivityFeed({ items }: ActivityFeedProps) {
-  const grouped = groupedByDay(items.slice(0, 120));
+export function ActivityFeed({ items, onClear }: ActivityFeedProps) {
+  const grouped = groupedByDay(items.slice(0, 50));
 
   return (
     <Card className="h-full">
-      <CardHeader>
-        <CardTitle className="text-base">Live Activity Feed</CardTitle>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <CardTitle className="font-heading text-xl">Live Activity Feed</CardTitle>
+        <Button variant="outline" size="sm" onClick={onClear}>
+          <Eraser className="mr-2 h-3.5 w-3.5" />
+          Clear Feed
+        </Button>
       </CardHeader>
       <CardContent className="space-y-4">
         {items.length === 0 ? <p className="text-sm text-muted-foreground">No activity yet.</p> : null}
         {grouped.map(([day, entries]) => (
           <div key={day} className="space-y-3">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">{day}</p>
+            <p className="border-b border-border/60 pb-1 text-xs uppercase tracking-[0.16em] text-muted-foreground">{day}</p>
             {entries.map((item) => {
               const icon = item.level === "error" ? AlertTriangle : item.level === "warn" ? Info : CheckCircle2;
               const Icon = icon;
               return (
-                <div key={item.id} className="rounded-xl border border-border/70 bg-background/60 p-3">
+                <div
+                  key={item.id}
+                  className="rounded-xl border border-border/70 bg-[linear-gradient(180deg,hsl(var(--card)/0.84),hsl(var(--background)/0.72))] p-3"
+                >
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex gap-2">
-                      <Icon className="mt-0.5 h-4 w-4" />
+                      <Icon className="mt-0.5 h-4 w-4 text-[hsl(var(--primary))]" />
                       <div>
                         <p className="text-sm">{item.message}</p>
                         {item.level === "error" ? (
@@ -49,14 +58,24 @@ export function ActivityFeed({ items }: ActivityFeedProps) {
                           </details>
                         ) : (
                           <>
-                            {item.sourcePath ? <p className="text-xs text-muted-foreground">from: {item.sourcePath}</p> : null}
-                            {item.destinationPath ? <p className="text-xs text-muted-foreground">to: {item.destinationPath}</p> : null}
+                            {item.sourcePath ? <p className="text-xs text-muted-foreground">{item.sourcePath}</p> : null}
+                            {item.destinationPath ? <p className="text-xs text-muted-foreground">{item.destinationPath}</p> : null}
                           </>
                         )}
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Badge>{item.level}</Badge>
+                      <Badge
+                        className={
+                          item.level === "error"
+                            ? "border-[hsl(var(--destructive)/0.65)] bg-[hsl(var(--destructive)/0.2)]"
+                            : item.level === "warn"
+                              ? "border-[hsl(var(--primary)/0.55)] bg-[hsl(var(--primary)/0.16)]"
+                              : ""
+                        }
+                      >
+                        {item.level}
+                      </Badge>
                       <span className="text-xs text-muted-foreground">{new Date(item.at).toLocaleTimeString()}</span>
                     </div>
                   </div>

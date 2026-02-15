@@ -1,6 +1,6 @@
-# SortRoot
+# SecondBreakfast
 
-SortRoot is a desktop drop-zone sorter built with Tauri v2 + React + Tailwind + shadcn-style UI.
+SecondBreakfast is a desktop drop-zone sorter built with Tauri v2 + React + Tailwind + shadcn-style UI.
 
 It watches a configurable `sortRoot` folder and sorts dropped files/folders into category subfolders:
 `Documents`, `Images`, `Video`, `Audio`, `Archives`, `Code`, `Executables`, `Data`, `Misc`.
@@ -10,7 +10,7 @@ It watches a configurable `sortRoot` folder and sorts dropped files/folders into
 - Onboarding flow with native folder picker.
 - Dashboard with watcher status, run controls, stats, and live activity feed.
 - Rules editor with category extension chips and save/revert/export/import.
-- Cleanup controls (trash mode, age threshold, protected folders).
+- Cleanup controls (trash mode, protected folders).
 - Settings controls for sort root and global sorting toggles.
 - Rust backend modules:
   - `rules.rs`
@@ -99,6 +99,7 @@ See:
 - `docs/BUILD.md` for Windows and Ubuntu packaging steps.
 - `docs/ACCEPTANCE.md` for acceptance test run details.
 - `docs/RELEASE_CHECKLIST.md` for release process and tagging.
+- `docs/THEME_TOKENS.md` for the SecondBreakfast visual token set.
 
 ## Config persistence
 

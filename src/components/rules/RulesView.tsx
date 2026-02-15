@@ -37,7 +37,7 @@ export function RulesView({ rules, onChange, onSave, onRevert, onExport, onImpor
   return (
     <div className="space-y-6 pb-24">
       <div className="flex items-center justify-between">
-        <h3 className="text-xl font-semibold">Rules</h3>
+        <h3 className="font-heading text-3xl font-semibold">Rules</h3>
         <Badge>{totalExtensions} extensions</Badge>
       </div>
 
@@ -45,14 +45,14 @@ export function RulesView({ rules, onChange, onSave, onRevert, onExport, onImpor
         {rules.categories.map((category) => {
           const Icon = categoryIcons[category.name] ?? FileText;
           return (
-            <Card key={category.id}>
+            <Card key={category.id} className="bg-[linear-gradient(180deg,hsl(var(--card)),hsl(var(--card)/0.9))]">
               <CardHeader>
-                <CardTitle className="flex items-center justify-between text-base">
+                <CardTitle className="flex items-center justify-between text-lg">
                   <span className="flex items-center gap-2">
-                    <Icon className="h-4 w-4" />
+                    <Icon className="h-4 w-4 text-[hsl(var(--primary))]" />
                     {category.name}
                   </span>
-                  <Badge>{category.extensions.length}</Badge>
+                  <Badge className="border-[hsl(var(--primary)/0.55)]">{category.extensions.length}</Badge>
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
@@ -60,7 +60,7 @@ export function RulesView({ rules, onChange, onSave, onRevert, onExport, onImpor
                   {category.extensions.map((ext) => (
                     <button
                       key={ext}
-                      className="rounded-full border border-border bg-secondary px-2.5 py-1 text-xs"
+                      className="rounded-full border border-[hsl(var(--primary)/0.35)] bg-[hsl(var(--secondary)/0.6)] px-2.5 py-1 text-xs transition hover:border-[hsl(var(--primary)/0.6)] hover:bg-[hsl(var(--primary)/0.18)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       onClick={() => {
                         onChange({
                           ...rules,
@@ -119,7 +119,7 @@ export function RulesView({ rules, onChange, onSave, onRevert, onExport, onImpor
         })}
       </section>
 
-      <footer className="fixed bottom-4 left-1/2 z-20 flex w-[min(860px,92vw)] -translate-x-1/2 items-center justify-between rounded-2xl border border-border bg-card/95 p-3 shadow-soft backdrop-blur">
+      <footer className="fixed bottom-4 left-1/2 z-20 flex w-[min(900px,92vw)] -translate-x-1/2 items-center justify-between rounded-2xl border border-[hsl(var(--border)/0.9)] bg-[hsl(var(--card)/0.96)] p-3 shadow-soft backdrop-blur">
         <div className="text-sm text-muted-foreground">Save rules to apply extension changes.</div>
         <div className="flex gap-2">
           <input

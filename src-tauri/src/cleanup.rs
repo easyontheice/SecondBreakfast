@@ -15,8 +15,7 @@ pub struct CleanupResult {
 }
 
 pub fn cleanup_empty_folders(rules: &Rules) -> AppResult<CleanupResult> {
-    let cleanup = &rules.global.cleanup_empty_folders;
-    if !cleanup.enabled {
+    if !rules.global.cleanup_empty_folders.enabled {
         return Ok(CleanupResult {
             trashed: 0,
             skipped: 0,
@@ -58,11 +57,6 @@ pub fn cleanup_empty_folders(rules: &Rules) -> AppResult<CleanupResult> {
             continue;
         }
 
-        if !is_old_enough(path, cleanup.min_age_seconds) {
-            result.skipped += 1;
-            continue;
-        }
-
         match fs::read_dir(path) {
             Ok(mut dir_entries) => {
                 if dir_entries.next().is_none() {
@@ -87,19 +81,6 @@ pub fn cleanup_empty_folders(rules: &Rules) -> AppResult<CleanupResult> {
     }
 
     Ok(result)
-}
-
-fn is_old_enough(path: &Path, min_age_seconds: u64) -> bool {
-    let Ok(meta) = fs::metadata(path) else {
-        return false;
-    };
-    let Ok(modified) = meta.modified() else {
-        return false;
-    };
-    let Ok(age) = modified.elapsed() else {
-        return false;
-    };
-    age.as_secs() >= min_age_seconds
 }
 
 fn is_protected(path: &Path, root: &Path, protected: &std::collections::HashSet<String>) -> bool {

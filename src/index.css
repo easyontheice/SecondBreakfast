@@ -3,24 +3,25 @@
 @tailwind utilities;
 
 :root {
-  --background: 222 45% 7%;
-  --foreground: 213 31% 92%;
-  --card: 223 35% 11%;
-  --card-foreground: 213 31% 92%;
-  --popover: 223 35% 11%;
-  --popover-foreground: 213 31% 92%;
-  --primary: 191 94% 58%;
-  --primary-foreground: 224 71% 4%;
-  --secondary: 224 20% 17%;
-  --secondary-foreground: 213 31% 92%;
-  --muted: 224 20% 16%;
-  --muted-foreground: 216 16% 68%;
-  --accent: 191 94% 58%;
-  --accent-foreground: 224 71% 4%;
-  --destructive: 0 74% 50%;
-  --border: 224 23% 21%;
-  --input: 224 23% 21%;
-  --ring: 191 94% 58%;
+  --background: 132 20% 7%;
+  --foreground: 42 28% 88%;
+  --card: 125 17% 11%;
+  --card-foreground: 42 28% 88%;
+  --popover: 125 17% 11%;
+  --popover-foreground: 42 28% 88%;
+  --primary: 39 48% 57%;
+  --primary-hover: 38 57% 63%;
+  --primary-foreground: 130 18% 9%;
+  --secondary: 129 15% 15%;
+  --secondary-foreground: 42 28% 88%;
+  --muted: 126 18% 9%;
+  --muted-foreground: 38 16% 68%;
+  --accent: 101 21% 47%;
+  --accent-foreground: 42 28% 88%;
+  --destructive: 10 41% 49%;
+  --border: 123 16% 20%;
+  --input: 123 16% 20%;
+  --ring: 39 48% 57%;
   --radius: 1rem;
 }
 
@@ -37,15 +38,47 @@
   @apply border-border;
 }
 
-body {
-  @apply bg-background text-foreground antialiased;
-  background-image:
-    radial-gradient(circle at 10% 0%, hsl(191 80% 20% / 0.35), transparent 32%),
-    radial-gradient(circle at 85% 100%, hsl(220 80% 20% / 0.35), transparent 32%);
-  font-family: "Space Grotesk", "Segoe UI", sans-serif;
-  min-height: 100vh;
+html,
+body,
+#root {
+  min-height: 100%;
 }
 
-#root {
-  min-height: 100vh;
+body {
+  @apply bg-background text-foreground antialiased;
+  font-family: "Inter", "Segoe UI", sans-serif;
+  background-image:
+    radial-gradient(circle at 12% -8%, hsl(var(--primary) / 0.16), transparent 42%),
+    radial-gradient(circle at 88% 110%, hsl(var(--accent) / 0.18), transparent 42%);
+  position: relative;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(hsl(var(--foreground) / 0.015) 1px, transparent 1px),
+    radial-gradient(hsl(var(--foreground) / 0.01) 1px, transparent 1px);
+  background-size: 3px 3px, 5px 5px;
+  background-position: 0 0, 2px 2px;
+}
+
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(circle at center, transparent 35%, hsl(0 0% 0% / 0.28) 100%);
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+.font-heading {
+  font-family: "Cormorant Garamond", Georgia, serif;
 }

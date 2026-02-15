@@ -9,7 +9,10 @@ export function Progress({ value, className, ...props }: ProgressProps) {
   const clamped = typeof value === "number" ? Math.max(0, Math.min(100, value)) : null;
 
   return (
-    <div className={cn("relative h-2 w-full overflow-hidden rounded-full bg-secondary", className)} {...props}>
+    <div
+      className={cn("relative h-2 w-full overflow-hidden rounded-full bg-[hsl(var(--secondary)/0.8)]", className)}
+      {...props}
+    >
       {clamped === null ? (
         <div className="absolute inset-y-0 w-1/3 animate-[indeterminate_1.2s_ease-in-out_infinite] rounded-full bg-primary" />
       ) : (

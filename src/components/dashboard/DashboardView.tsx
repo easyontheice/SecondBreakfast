@@ -12,6 +12,7 @@ interface DashboardViewProps {
   progress: { moved: number; skipped: number; errors: number };
   onChangeSortRoot: () => void;
   onUndo: () => void;
+  onClearActivity: () => void;
   running: boolean;
 }
 
@@ -22,6 +23,7 @@ export function DashboardView({
   progress,
   onChangeSortRoot,
   onUndo,
+  onClearActivity,
   running
 }: DashboardViewProps) {
   const stats = [
@@ -34,13 +36,15 @@ export function DashboardView({
     }
   ];
 
+  const totalProcessed = (lastRun?.moved ?? 0) + (lastRun?.skipped ?? 0);
+
   return (
     <div className="space-y-6">
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
-            <CardTitle className="text-xl">Watching: {sortRoot}</CardTitle>
-            <p className="text-sm text-muted-foreground">Drop files or folders in your sortRoot and the app will auto-sort.</p>
+            <CardTitle className="font-heading text-3xl">Watching: {sortRoot}</CardTitle>
+            <p className="text-sm text-muted-foreground">Drop files or folders into your Sort Folder and the app will auto-sort.</p>
           </div>
           <div className="flex gap-2">
             <Button variant="outline" onClick={onChangeSortRoot}>
@@ -53,7 +57,10 @@ export function DashboardView({
             </Button>
           </div>
         </CardHeader>
-        <CardContent className="space-y-2">
+        <CardContent className="space-y-3">
+          <div className="rounded-xl border border-[hsl(var(--primary)/0.45)] bg-[hsl(var(--primary)/0.1)] px-3 py-2 text-sm">
+            {lastRun ? `${lastRun.moved}/${totalProcessed} files moved in the last run` : "No completed runs yet."}
+          </div>
           <div className="flex items-center justify-between text-xs text-muted-foreground">
             <span>{running ? "Sorting in progress" : "Idle"}</span>
             <span>
@@ -68,14 +75,14 @@ export function DashboardView({
         {stats.map((item) => (
           <Card key={item.label}>
             <CardContent className="pt-6">
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">{item.label}</p>
-              <p className="mt-1 text-2xl font-semibold">{item.value}</p>
+              <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">{item.label}</p>
+              <p className="mt-1 font-heading text-3xl font-semibold leading-none">{item.value}</p>
             </CardContent>
           </Card>
         ))}
       </section>
 
-      <ActivityFeed items={activity} />
+      <ActivityFeed items={activity} onClear={onClearActivity} />
     </div>
   );
 }
