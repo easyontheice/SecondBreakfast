@@ -1,5 +1,9 @@
 # 🥖 SecondBreakfast
 
+<p align="center">
+  <img src="docs/images/banner.png" alt="SecondBreakfast Banner" />
+</p>
+
 ![Version](https://img.shields.io/badge/version-1.0.0-blue)
 ![Built with](https://img.shields.io/badge/built%20with-Tauri%20v2-orange)
 ![UI](https://img.shields.io/badge/ui-React%20%2B%20Tailwind%20%2B%20shadcn-black)
@@ -29,69 +33,76 @@ SecondBreakfast watches a configurable `sortRoot` and automatically routes incom
 * `Data`
 * `Misc`
 
-Drop a single file.
-Drop an entire folder tree.
-Walk away.
+Drop a single file.  
+Drop an entire folder tree.  
+Walk away.  
 
 Everything finds its proper place.
 
 ---
 
-## 🌿 Features (v1.0.0)
+## 🎨 Selectable Themes
 
-### 🧭 Onboarding
+SecondBreakfast includes **four built-in visual themes**, selectable from the top of the app.
 
-* Native folder picker
-* Clean first-run experience
-* Watcher auto-start setup
+Each theme adjusts the full color palette — backgrounds, accents, borders, and highlights — letting you choose the mood of your Hobbit hole.
 
-### 📊 Dashboard
+Switch themes instantly without restarting the app.
 
-* Watcher status indicator
-* Run controls
-* Live progress + activity feed
-* Undo last run
+Because even Hobbits redecorate.
 
-### 🏷 Rules Editor
+---
 
-* Category extension chips
-* Add/remove extensions
-* Save / revert
-* Export / import `rules.json`
+## 📊 Dashboard
 
-### 🧹 Cleanup Controls
+<p align="center">
+  <img src="docs/images/dashboard.png" alt="Dashboard" width="900"/>
+</p>
 
-* Optional empty-folder cleanup
-* Protected category folders
-* Trash mode support
+The command center of your Hobbit hole.  
+Monitor watcher status, run sorting manually, undo the last run, and track activity in real time.
 
-### ⚙ Settings
+---
 
-* Change sort root anytime
-* Global sorting toggles
+## 🏷 Rules Editor
 
-### 🦀 Rust Backend Modules
+<p align="center">
+  <img src="docs/images/rules.png" alt="Rules Editor" width="900"/>
+</p>
 
-* `rules.rs`
-* `planner.rs`
-* `executor.rs`
-* `cleanup.rs`
-* `watcher.rs`
-* `journal.rs`
-* `errors.rs`
+Customize which extensions belong to each category.  
+Add, remove, export, or import rule sets with simple extension chips.
 
-### 🔌 Tauri Command API
+---
 
-* `get_rules`, `set_rules`, `validate_rules`, `set_sort_root`
-* `dry_run`, `run_now`, `undo_last_run`
-* `start_watcher`, `stop_watcher`, `watcher_status`
+## 🧹 Cleanup Settings
 
-### 📡 Event Stream
+<p align="center">
+  <img src="docs/images/cleanup.png" alt="Cleanup Settings" width="900"/>
+</p>
 
-* `run_progress`
-* `run_log`
-* `watcher_status`
-* `run_complete`
+Control empty-folder cleanup behavior and protect important directories.  
+SecondBreakfast keeps things tidy — but only when you say so.
+
+---
+
+## 🛡 Protected Folders
+
+<p align="center">
+  <img src="docs/images/ssFolders.png" alt="Protected Folders" width="900"/>
+</p>
+
+Core category folders are auto-created and protected to ensure sorting remains stable and predictable.
+
+---
+
+## ⚙ Settings
+
+<p align="center">
+  <img src="docs/images/settings.png" alt="Settings" width="900"/>
+</p>
+
+Change your Sort Folder anytime and toggle global behavior options.
 
 ---
 
@@ -161,6 +172,7 @@ npm run tauri dev
 * Deterministic undo system with `Restored/<session_id>` isolation
 * Acceptance-tested planner + executor
 * Config persistence via OS config directory
+* Four selectable UI themes
 * Windows installer auto-build via GitHub Actions
 
 ---
@@ -209,7 +221,7 @@ sort-root/rules.json
 Undo journal is append-only JSONL:
 
 ```
-sort-root/journal.jsonl
+sort-root/journal.jsonl`
 ```
 
 ---
@@ -231,5 +243,3 @@ See:
 SecondBreakfast is provided “as is”, without warranty of any kind.  
 Always test with non-critical files before using on important data.  
 Use at your own risk.
-
-
