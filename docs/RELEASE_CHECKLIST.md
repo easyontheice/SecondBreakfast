@@ -27,7 +27,7 @@ npm run tauri dev
 ```
 
 Checklist:
-- Onboarding sortRoot selection works.
+- Onboarding SecondBreakfast selection works.
 - Run Now and Dry Run are functional.
 - Watcher pause/resume works.
 - Undo last run works for normal and conflict cases.
