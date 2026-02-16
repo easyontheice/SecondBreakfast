@@ -8,7 +8,9 @@ interface OnboardingProps {
   canStart: boolean;
   onPick: (path: string) => void;
   onStart: () => void;
+  primaryActionLabel?: string;
 }
+
 
 const folders = [
   "Documents",
@@ -22,7 +24,13 @@ const folders = [
   "Misc"
 ];
 
-export function Onboarding({ sortRoot, canStart, onPick, onStart }: OnboardingProps) {
+export function Onboarding({
+  sortRoot,
+  canStart,
+  onPick,
+  onStart,
+  primaryActionLabel = "Start",
+}: OnboardingProps) {
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-3xl items-center p-6">
       <Card className="w-full">
@@ -60,9 +68,10 @@ export function Onboarding({ sortRoot, canStart, onPick, onStart }: OnboardingPr
 
           <p className="text-xs text-muted-foreground">Select a folder before starting watcher setup.</p>
 
-          <Button className="w-full" disabled={!canStart} onClick={onStart}>
-            Start Watching
-          </Button>
+         <Button className="w-full" disabled={!canStart} onClick={onStart}>
+           {primaryActionLabel}
+         </Button>
+
         </CardContent>
       </Card>
     </div>

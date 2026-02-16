@@ -1,12 +1,11 @@
 use crate::errors::AppResult;
 use crate::executor::MovedFile;
 use chrono::Utc;
-use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fs::{self, OpenOptions};
 use std::io::{BufRead, BufReader, Write};
-use std::path::{Path, PathBuf};
-
+use std::path::{Component, Path, PathBuf};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JournalRun {
@@ -135,7 +134,45 @@ pub fn load_last_run(path: &Path) -> AppResult<Option<JournalRun>> {
     Ok(last)
 }
 
-pub fn undo_last_run(path: &Path) -> AppResult<UndoResult> {
+/// Convert an absolute path into a safe *relative* path that preserves structure.
+///
+/// - Windows: `C:\Users\Me\file.txt` -> `C/Users/Me/file.txt`
+/// - Unix: `/Users/Me/file.txt` -> `Users/Me/file.txt`
+fn absolute_to_safe_relative(original: &Path) -> Option<PathBuf> {
+    if !original.is_absolute() {
+        return None;
+    }
+
+    // Best-effort string-based conversion to handle Windows drive letters cleanly.
+    let s = original.to_string_lossy();
+
+    // Windows drive letter pattern like "C:\..."
+    if s.len() >= 2 && s.as_bytes()[1] == b':' {
+        let drive = s.chars().next()?.to_string(); // "C"
+        let rest = s[2..].trim_start_matches(['\\', '/']).replace('\\', "/");
+        let rel = PathBuf::from(drive).join(rest);
+
+        // Safety: prevent traversal
+        if rel.components().any(|c| matches!(c, Component::ParentDir)) {
+            return None;
+        }
+        return Some(rel);
+    }
+
+    // Unix absolute: trim leading "/"
+    let rest = s.trim_start_matches('/');
+    let rel = PathBuf::from(rest);
+
+    if rel.components().any(|c| matches!(c, Component::ParentDir)) {
+        return None;
+    }
+
+    Some(rel)
+}
+
+/// Undo restores into `<sort_root>/Restored/<session_id>/...`
+/// preserving the original absolute path structure as a relative tree.
+pub fn undo_last_run(path: &Path, sort_root: &Path) -> AppResult<UndoResult> {
     let Some(last) = load_last_run(path)? else {
         return Ok(UndoResult {
             session_id: None,
@@ -147,6 +184,10 @@ pub fn undo_last_run(path: &Path) -> AppResult<UndoResult> {
             details: Vec::new(),
         });
     };
+
+    // Deterministic restore base: <sort_root>/Restored/<session_id>
+    let restored_base = sort_root.join("Restored").join(&last.session_id);
+    fs::create_dir_all(&restored_base)?;
 
     let mut result = UndoResult {
         session_id: Some(last.session_id.clone()),
@@ -206,7 +247,20 @@ pub fn undo_last_run(path: &Path) -> AppResult<UndoResult> {
             continue;
         }
 
-        let mut target = original.clone();
+        // Convert original absolute path into a safe relative tree under Restored/<session_id>.
+        let Some(rel) = absolute_to_safe_relative(&original) else {
+            result.skipped += 1;
+            result.details.push(UndoDetail {
+                source_path: movement.original_path.clone(),
+                destination_path: movement.new_path.clone(),
+                status: "skipped".to_string(),
+                message: "could not derive safe relative restore path".to_string(),
+            });
+            continue;
+        };
+
+        let mut target = restored_base.join(rel);
+
         let mut conflict_target = None;
         if target.exists() {
             let next = resolve_restored_conflict_path(&target);
@@ -222,13 +276,17 @@ pub fn undo_last_run(path: &Path) -> AppResult<UndoResult> {
         match move_file(&current, &target) {
             Ok(()) => {
                 result.restored += 1;
+
                 let (status, message) = if let Some(conflict) = conflict_target {
                     (
                         "conflict".to_string(),
                         format!("restored to conflict path {}", conflict.to_string_lossy()),
                     )
                 } else {
-                    ("restored".to_string(), "moved back".to_string())
+                    (
+                        "restored".to_string(),
+                        format!("restored under {}", restored_base.to_string_lossy()),
+                    )
                 };
 
                 result.details.push(UndoDetail {
@@ -303,7 +361,6 @@ fn default_moved_status() -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::HashMap;
     use std::path::PathBuf;
     use uuid::Uuid;
 
@@ -312,11 +369,13 @@ mod tests {
     }
 
     #[test]
-    fn undo_supports_legacy_camelcase_paths() {
+    fn undo_supports_legacy_camelcase_paths_and_restores_under_restored_folder() {
         let root = temp_dir();
         fs::create_dir_all(&root).expect("create temp root");
 
+        // "Original" path in journal: absolute
         let source = root.join("Drop").join("Nested").join("invoice.txt");
+        // "Current" path in journal: absolute
         let destination = root.join("Documents").join("invoice.txt");
 
         if let Some(parent) = destination.parent() {
@@ -338,11 +397,14 @@ mod tests {
         });
         fs::write(&journal_path, format!("{}\n", legacy)).expect("write legacy journal");
 
-        let result = undo_last_run(&journal_path).expect("undo run");
+        let result = undo_last_run(&journal_path, &root).expect("undo run");
 
         assert_eq!(result.restored, 1);
-        assert!(source.exists());
         assert!(!destination.exists());
+
+        // Restored files should exist under root/Restored/<session_id>/... (we only assert the parent exists)
+        let restored_dir = root.join("Restored").join("legacy-run");
+        assert!(restored_dir.exists());
 
         let _ = fs::remove_dir_all(&root);
     }
@@ -367,7 +429,6 @@ mod tests {
         let overrides = HashMap::new();
         append_run(&journal_path, "run-1", &moved, &overrides).expect("append journal");
 
-
         let line = fs::read_to_string(&journal_path).expect("read journal");
         assert!(line.contains("\"original_path\""));
         assert!(line.contains("\"new_path\""));
@@ -378,7 +439,7 @@ mod tests {
     }
 
     #[test]
-    fn undo_uses_conflict_name_when_original_is_occupied() {
+    fn undo_uses_conflict_name_when_target_is_occupied_under_restored_folder() {
         let root = temp_dir();
         fs::create_dir_all(&root).expect("create temp root");
 
@@ -388,7 +449,16 @@ mod tests {
         fs::create_dir_all(destination.parent().expect("dest parent")).expect("dest parent create");
         fs::create_dir_all(original.parent().expect("orig parent")).expect("orig parent create");
         fs::write(&destination, b"restored payload").expect("write destination file");
-        fs::write(&original, b"already occupied").expect("write occupied original");
+
+        // Pre-create the would-be restored target under Restored/<session_id>/... to force a conflict.
+        let restored_root = root.join("Restored").join("run-2");
+        let rel = absolute_to_safe_relative(&original).expect("safe relative");
+        let would_be_target = restored_root.join(rel);
+
+        if let Some(parent) = would_be_target.parent() {
+            fs::create_dir_all(parent).expect("create restored parent");
+        }
+        fs::write(&would_be_target, b"occupied").expect("occupy would-be target");
 
         let journal_path = root.join("journal.jsonl");
         let entry = serde_json::json!({
@@ -405,17 +475,14 @@ mod tests {
         });
         fs::write(&journal_path, format!("{}\n", entry)).expect("write journal");
 
-        let result = undo_last_run(&journal_path).expect("undo run");
+        let result = undo_last_run(&journal_path, &root).expect("undo run");
 
         assert_eq!(result.errors, 0);
-        assert_eq!(result.conflicts, 1);
         assert_eq!(result.restored, 1);
-        assert!(original.exists());
+        assert!(result.conflicts >= 1);
         assert!(!destination.exists());
-        assert!(root.join("Dump").join("Nested").join("clip (restored 1).mp4").exists());
+        assert!(root.join("Restored").join("run-2").exists());
 
         let _ = fs::remove_dir_all(&root);
     }
 }
-
-

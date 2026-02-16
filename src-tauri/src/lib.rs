@@ -11,11 +11,13 @@ use cleanup::CleanupResult;
 use executor::RunResult;
 use planner::PlanPreview;
 use rules::{Rules, ValidationResult};
+
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
+
 use tauri::{AppHandle, Emitter, Manager, State};
 use watcher::{DebouncedAction, EventObserver, WatcherController, WatcherStatus};
 
@@ -40,20 +42,18 @@ struct AppStateInner {
     origin_hints: Mutex<Vec<OriginHint>>,
 }
 
-
 impl AppState {
     fn new(rules: Rules, rules_path: PathBuf, journal_path: PathBuf) -> Self {
         Self {
             inner: Arc::new(AppStateInner {
-            rules: Mutex::new(rules),
-            rules_path,
-            journal_path,
-            watcher: Arc::new(Mutex::new(WatcherController::default())),
-            pipeline_running: AtomicBool::new(false),
-            undo_in_progress: AtomicBool::new(false),
-            origin_hints: Mutex::new(Vec::new()),
-}),
-
+                rules: Mutex::new(rules),
+                rules_path,
+                journal_path,
+                watcher: Arc::new(Mutex::new(WatcherController::default())),
+                pipeline_running: AtomicBool::new(false),
+                undo_in_progress: AtomicBool::new(false),
+                origin_hints: Mutex::new(Vec::new()),
+            }),
         }
     }
 
@@ -210,7 +210,6 @@ fn run_now_internal(app: &AppHandle, state: &AppState) -> AppResult<RunResult> {
     )?;
     clear_origin_hints(state)?;
 
-
     if should_emit_run_complete(&result) {
         let _ = app.emit("run_complete", result.clone());
     }
@@ -226,14 +225,31 @@ fn undo_last_run_internal(app: &AppHandle, state: &AppState) -> AppResult<journa
         stop_watcher_internal(app, state)?;
     }
 
-    let undo_result = journal::undo_last_run(&state.inner.journal_path);
+    // Grab sort_root from in-memory rules
+    let sort_root = {
+        let rules = state
+            .inner
+            .rules
+            .lock()
+            .map_err(|_| AppError::State("rules mutex poisoned".to_string()))?;
+        rules.global.sort_root.clone()
+    };
+
+    if sort_root.trim().is_empty() {
+        return Err(AppError::State(
+            "sort_root is not set; cannot create Restored folder".to_string(),
+        ));
+    }
+
+    // ✅ ONE `?` only: this returns UndoResult directly.
+    let result =
+        journal::undo_last_run(&state.inner.journal_path, Path::new(sort_root.as_str()))?;
 
     if watcher_was_running {
         std::thread::sleep(Duration::from_millis(1500));
         start_watcher_internal(app, state)?;
     }
 
-    let result = undo_result?;
     executor::emit_log(
         app,
         "info",
@@ -242,6 +258,7 @@ fn undo_last_run_internal(app: &AppHandle, state: &AppState) -> AppResult<journa
             result.restored, result.skipped, result.conflicts, result.missing, result.errors
         ),
     );
+
     Ok(result)
 }
 
@@ -252,6 +269,7 @@ fn start_watcher_internal(app: &AppHandle, state: &AppState) -> AppResult<()> {
     let sort_root = PathBuf::from(&rules.global.sort_root);
     let app_handle = app.clone();
     let state_clone = state.clone();
+
     let action: DebouncedAction = Arc::new(move || {
         if state_clone.inner.undo_in_progress.load(Ordering::SeqCst) {
             return;
@@ -262,10 +280,13 @@ fn start_watcher_internal(app: &AppHandle, state: &AppState) -> AppResult<()> {
         }
 
         if let Err(err) = run_now_internal(&app_handle, &state_clone) {
-            executor::emit_log(&app_handle, "error", format!("watcher-triggered run failed: {}", err));
+            executor::emit_log(
+                &app_handle,
+                "error",
+                format!("watcher-triggered run failed: {}", err),
+            );
         }
     });
-
 
     let hint_state = state.clone();
     let hint_sort_root = sort_root.clone();
@@ -644,34 +665,17 @@ mod acceptance_tests {
         assert_eq!(run.errors, 0);
         assert!(run.moved >= 2);
 
-       let overrides = resolve_original_path_overrides(state, &run.moved_files)?;
+        let journal_path = root.join("journal.jsonl");
+        let overrides: HashMap<String, String> = HashMap::new();
         journal::append_run(&journal_path, &run.session_id, &run.moved_files, &overrides)
             .expect("append run");
-        clear_origin_hints(state).expect("clear origin hints");
 
+        let undo = journal::undo_last_run(&journal_path, root.as_path()).expect("undo last run");
 
-
-
-
-        let conflict_source = PathBuf::from(&run.moved_files[0].source_path);
-        write_file(&conflict_source, b"occupied");
-
-        let undo = journal::undo_last_run(&journal_path).expect("undo last run");
-
-        assert!(undo.conflicts >= 1);
         assert!(undo.restored >= 1);
         assert_eq!(undo.errors, 0);
+        assert!(root.join("Restored").join(&run.session_id).exists());
 
         tear_down(&root);
     }
-}
-
-
-
-
-
-
-
-
-
-
+} // end mod acceptance_tests

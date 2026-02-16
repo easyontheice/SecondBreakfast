@@ -43,38 +43,35 @@ function App() {
   const [rules, setRules] = useState<Rules | null>(null);
   const [draftRules, setDraftRules] = useState<Rules | null>(null);
   const [loading, setLoading] = useState(true);
+
   const [running, setRunning] = useState(false);
   const [watcherRunning, setWatcherRunning] = useState(false);
+
   const [lastRun, setLastRun] = useState<RunResult | null>(null);
   const [progress, setProgress] = useState({ moved: 0, skipped: 0, errors: 0 });
   const [activity, setActivity] = useState<ActivityItem[]>([]);
+
   const [dryPlan, setDryPlan] = useState<PlanPreview | null>(null);
   const [dryOpen, setDryOpen] = useState(false);
-  const [onboarding, setOnboarding] = useState(false);
-  const [pickedSortRoot, setPickedSortRoot] = useState(false);
 
+  // ---------------------------
+  // BOOTSTRAP APP STATE
+  // ---------------------------
   useEffect(() => {
     let active = true;
 
     async function boot() {
       try {
         const [nextRules, status] = await Promise.all([getRules(), watcherStatus()]);
-        if (!active) {
-          return;
-        }
+        if (!active) return;
 
         setRules(nextRules);
         setDraftRules(nextRules);
         setWatcherRunning(status.running);
-
-        const done = localStorage.getItem(ONBOARDING_KEY) === "true";
-        setOnboarding(!done);
       } catch (error) {
         toast.error(`Failed to load app state: ${String(error)}`);
       } finally {
-        if (active) {
-          setLoading(false);
-        }
+        if (active) setLoading(false);
       }
     }
 
@@ -85,6 +82,9 @@ function App() {
     };
   }, []);
 
+  // ---------------------------
+  // EVENT LISTENERS
+  // ---------------------------
   useEffect(() => {
     let disposed = false;
 
@@ -94,9 +94,8 @@ function App() {
       });
 
       const unlistenLog = await onRunLog((payload) => {
-        if (payload.level === "info") {
-          return;
-        }
+        if (payload.level === "info") return;
+
         setActivity((prev) => [
           createActivity({
             level: payload.level,
@@ -108,9 +107,7 @@ function App() {
 
       const unlistenRunComplete = await onRunComplete((payload) => {
         const totalProcessed = payload.moved + payload.skipped;
-        if (totalProcessed === 0 && payload.errors === 0) {
-          return;
-        }
+        if (totalProcessed === 0 && payload.errors === 0) return;
 
         setLastRun(payload);
         setProgress({ moved: payload.moved, skipped: payload.skipped, errors: payload.errors });
@@ -154,14 +151,60 @@ function App() {
 
   const sortRoot = useMemo(() => rules?.global.sortRoot ?? "", [rules]);
 
+  // ---------------------------
+  // SPLASH SCREEN
+  // ---------------------------
   if (loading || !rules || !draftRules) {
     return (
-      <div className="grid min-h-screen place-items-center text-sm text-muted-foreground">
-        Loading SecondBreakfast...
+      <div className="min-h-screen grid place-items-center">
+        <div className="text-center space-y-2">
+          <div className="text-xl font-semibold">SecondBreakfast</div>
+          <div className="text-sm text-muted-foreground">Starting up…</div>
+        </div>
       </div>
     );
   }
 
+  // ---------------------------
+  // ONBOARDING (SINGLE GATE)
+  // ---------------------------
+  const hasOnboarded = localStorage.getItem(ONBOARDING_KEY) === "true";
+  const needsOnboarding = !hasOnboarded || !sortRoot.trim();
+
+  const persistSortRoot = async (path: string) => {
+    await setSortRoot(path);
+    const updated = await getRules();
+    setRules(updated);
+    setDraftRules(updated);
+  };
+
+  if (needsOnboarding) {
+    return (
+      <Onboarding
+        sortRoot={sortRoot}
+        canStart={!!sortRoot.trim()}
+        onPick={(path) => {
+          void persistSortRoot(path);
+        }}
+        onStart={async () => {
+          if (!sortRoot.trim()) {
+            toast.error("Select your Sort Folder before continuing");
+            return;
+          }
+
+          localStorage.setItem(ONBOARDING_KEY, "true");
+          await startWatcher();
+          setWatcherRunning(true);
+          toast.success("Watcher started");
+        }}
+        primaryActionLabel="Start"
+      />
+    );
+  }
+
+  // ---------------------------
+  // MAIN APP ACTIONS
+  // ---------------------------
   const liveSetRules = async (nextRules: Rules) => {
     setDraftRules(nextRules);
     await saveRules(nextRules);
@@ -195,6 +238,7 @@ function App() {
     try {
       const result = await undoLastRun();
       toast.success(`Undo complete: ${result.restored} restored`);
+
       setActivity((prev) => [
         createActivity({
           level: result.errors > 0 ? "warn" : "info",
@@ -221,46 +265,21 @@ function App() {
     }
   };
 
-  const handleSortRootChange = async (path?: string, markPicked = false) => {
+  const handleSortRootChange = async (path?: string) => {
     try {
       const nextPath = path ?? (await open({ directory: true, multiple: false }));
-      if (typeof nextPath !== "string") {
-        return;
-      }
-      await setSortRoot(nextPath);
-      const updated = await getRules();
-      setRules(updated);
-      setDraftRules(updated);
-      if (markPicked) {
-        setPickedSortRoot(true);
-      }
+      if (typeof nextPath !== "string") return;
+
+      await persistSortRoot(nextPath);
       toast.success("Sort folder updated");
     } catch (error) {
       toast.error(`Failed to change sort folder: ${String(error)}`);
     }
   };
 
-  if (onboarding) {
-    return (
-      <Onboarding
-        sortRoot={sortRoot}
-        canStart={pickedSortRoot}
-        onPick={(path) => void handleSortRootChange(path, true)}
-        onStart={async () => {
-          if (!pickedSortRoot) {
-            toast.error("Select your Sort Folder before continuing");
-            return;
-          }
-
-          await startWatcher();
-          localStorage.setItem(ONBOARDING_KEY, "true");
-          setOnboarding(false);
-          toast.success("Watcher started");
-        }}
-      />
-    );
-  }
-
+  // ---------------------------
+  // MAIN UI
+  // ---------------------------
   return (
     <>
       <HashRouter>
@@ -288,6 +307,7 @@ function App() {
                 />
               }
             />
+
             <Route
               path="/rules"
               element={
@@ -327,10 +347,12 @@ function App() {
                 />
               }
             />
+
             <Route
               path="/cleanup"
               element={<CleanupView rules={draftRules} onChange={(next) => void liveSetRules(next)} />}
             />
+
             <Route
               path="/settings"
               element={
