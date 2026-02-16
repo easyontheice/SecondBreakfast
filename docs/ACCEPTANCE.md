@@ -20,7 +20,7 @@ Summary: 5 passed, 0 failed.
 
 These tests run against real temporary filesystem folders and validate the core product contract:
 
-- configurable `sortRoot` behavior
+- configurable `SecondBreakfast` behavior
 - flatten-mode file moves
 - extension classification (including unknown/no-extension handling)
 - rename collision policy
