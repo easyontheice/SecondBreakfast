@@ -1,10 +1,10 @@
-# SortRoot Specification
+# SecondBreakfast Specification
 
 ## Product Summary
-SortRoot is a drop-zone sorter desktop app built with Tauri v2 (Rust backend) and React frontend. Users choose a configurable `sortRoot` folder. The app watches that folder and automatically sorts dropped files and folder trees into category subfolders.
+SecondBreakfast is a drop-zone sorter desktop app built with Tauri v2 (Rust backend) and React frontend. Users choose a configurable `SecondBreakfast` folder. The app watches that folder and automatically sorts dropped files and folder trees into category subfolders.
 
 ## Category Subfolders
-The app ensures these protected subfolders exist under `sortRoot`:
+The app ensures these protected subfolders exist under `SecondBreakfast`:
 - `Documents`
 - `Images`
 - `Video`
@@ -31,14 +31,14 @@ These folders are protected and must never be deleted by cleanup.
 - Deletion mode is Trash/Recycle only (`mode = "trash"`).
 - Respect directory age threshold (`minDirAgeSeconds`).
 - Never delete:
-  - `sortRoot`
+  - `SecondBreakfast`
   - protected category folders
   - any descendants of protected category folders
 
 ## Config Persistence
 Config lives in the OS app config directory as `rules.json` and includes:
 - `global`:
-  - `sortRoot`
+  - `SecondBreakfast`
   - `caseInsensitiveExt`
   - `collisionPolicy`
   - `unknownGoesToMisc`
@@ -82,7 +82,7 @@ Commands:
 Events:
 - `run_progress { moved, skipped, errors, currentPath, destPath }`
 - `run_log { level, message }`
-- `watcher_status { running, sortRoot }`
+- `watcher_status { running, SecondBreakfast }`
 
 ## UI Screens
 - Onboarding: pick sort folder and start watcher.
@@ -95,7 +95,7 @@ Events:
 1. Sort folder can be selected, persisted, and changed later.
 2. Mixed dropped file trees are flattened into correct categories.
 3. Unknown and no-extension files route to `Misc` by default.
-4. `sortRoot` and category folders are never deleted.
+4. `SecondBreakfast` and category folders are never deleted.
 5. Empty remnants are trashed after a run.
 6. Dry run destination/counts match real run behavior.
 7. Undo-last-run restores moved files best-effort and reports skips.
