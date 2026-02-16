@@ -1,10 +1,9 @@
-![Version](https://img.shields.io/badge/version-1.0.0-blue)
-![Platform](https://img.shields.io/badge/platform-Windows-green)
-![Built With](https://img.shields.io/badge/built%20with-Tauri%20v2-orange)
-![License](https://img.shields.io/badge/license-MIT-lightgrey)
-
-
 # 🥖 SecondBreakfast
+
+![Version](https://img.shields.io/badge/version-1.0.0-blue)
+![Built with](https://img.shields.io/badge/built%20with-Tauri%20v2-orange)
+![UI](https://img.shields.io/badge/ui-React%20%2B%20Tailwind%20%2B%20shadcn-black)
+![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-green)
 
 **v1.0.0 — Officially out of the Shire.**
 
