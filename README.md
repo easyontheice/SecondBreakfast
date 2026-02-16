@@ -9,7 +9,11 @@
 ![UI](https://img.shields.io/badge/ui-React%20%2B%20Tailwind%20%2B%20shadcn-black)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-green)
 
+
+
 **v1.0.0 — Officially out of the Shire.**
+
+[![Releases](https://img.shields.io/badge/releases-download-blue)](https://github.com/easyontheice/SecondBreakfast/releases)
 
 SecondBreakfast is a real-time drop-folder organizer inspired by the comforts of a well-ordered Hobbit hole.
 
