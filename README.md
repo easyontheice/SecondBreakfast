@@ -224,3 +224,12 @@ See:
 * `docs/THEME_TOKENS.md`
 * `docs/SPEC.md`
 
+---
+
+## Disclaimer
+
+SecondBreakfast is provided “as is”, without warranty of any kind.  
+Always test with non-critical files before using on important data.  
+Use at your own risk.
+
+
